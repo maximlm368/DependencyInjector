@@ -1,0 +1,32 @@
+{
+  "InterfaceImplimentations": {
+    "Interface": [
+      {
+        "interface": "ISomeInterface",
+        "implimentation": "SomeClass"
+      },
+      {
+        "interface": "IAnotherSomeInterface",
+        "implimentation": "AnotherSomeClass"
+      }
+    ]
+  },
+
+  "PrimitiveParameters": {
+    "Parameter": [
+      {
+        "implimentation": "AnotherSomeClass",
+        "ordinalNumberAmongCtorParams": "0",
+        "parameterTypeName": "Int32",
+        "value": " "
+      },
+      {
+        "implimentation": "AnotherSomeClass",
+        "ordinalNumberAmongCtorParams": "1",
+        "parameterTypeName": "String",
+        "value": " "
+      }
+    ]
+  }
+
+}
