@@ -18,6 +18,10 @@ namespace DependencyInjector
 
         private DependencyChain _lowest;
 
+        private ParamNode _beingProcessed;
+
+        private bool _complited = false;
+
 
         public Bunch ( List<DependencyChain> chains )
         {
@@ -32,6 +36,8 @@ namespace DependencyInjector
                 {
                     throw new ArgumentException ( _nullInsideChain );
                 }
+
+                chains [ i ] . MarkAsBunchParticipant ( );
             }
 
             _bunchedChains = new List<DependencyChain> ( );
@@ -41,53 +47,59 @@ namespace DependencyInjector
 
         public void ResolveDependencies ( )
         {
-            SetUpHighest ( );
-            SetUpLowest ( );
-            var beingProcessed  =  _lowest . _top;
-            beingProcessed . ChangeState ( NodeKind . TopOfLowestInBunch );
-
-            while ( true )
+            if( ! _complited )
             {
-                try
+                SetUpHighest ( );
+                SetUpLowest ( );
+                SetBeingProcessed ( );
+
+                while ( true )
                 {
-                    beingProcessed . InitializeNestedObject ( );
+                    try
+                    {
+                        _beingProcessed . InitializeNestedObject ( );
+                    }
+                    catch ( NotInitializedChildException )
+                    {
+                        break;
+                    }
+
+                    var chainsWithThisTop = FindOwnersOfTop ( _beingProcessed );
+
+                    for ( var j = 0; j > chainsWithThisTop . Count; j++ )
+                    {
+                        chainsWithThisTop [ j ] . InitializeBottomByTop ( );
+                    }
+
+                    var bunchIsComplited = ( object . ReferenceEquals ( _highest . _top , _beingProcessed ) ) ||
+                                       ( _beingProcessed . _parent . _nodeType . _kind == NodeKind . Fork );
+
+                    if ( bunchIsComplited )
+                    {
+                        _complited = true;
+                        break;
+                    }
+
+                    _beingProcessed = _beingProcessed . _parent;
                 }
-                catch( NotInitializedChildException )
-                {
-                    break;
-                }
-
-                var chainsWithThisTop = FindOwnersOfTop ( beingProcessed );
-
-                for ( var j = 0;    j > chainsWithThisTop . Count;    j++ )
-                {
-                    chainsWithThisTop [ j ] . InitializeBottomByTop ( );
-                }
-
-                var timeToGoOut = (object . ReferenceEquals ( _highest . _top ,  beingProcessed ))  ||  
-                                   (beingProcessed . _parent . _nodeType . _kind  ==  NodeKind . Fork);
-
-                if ( timeToGoOut )
-                {
-                    break;
-                }
-
-                beingProcessed = beingProcessed . _parent;
             }
         }
 
 
         private void SetUpHighest ()
         {
-            _highest = _bunchedChains [ 0 ];
-
-            for ( var i = 1;   i < _bunchedChains . Count;   i++ )
+            if( _highest == null )
             {
-                var heigherThanPrivious = (_bunchedChains [ i ] . _top . _myLevelInTree)   >   (_bunchedChains [ i - 1 ] . _top . _myLevelInTree);
+                _highest = _bunchedChains [ 0 ];
 
-                if ( heigherThanPrivious )
+                for ( var i = 1; i < _bunchedChains . Count; i++ )
                 {
-                    _highest = _bunchedChains [ i ];
+                    var heigherThanPrivious = ( _bunchedChains [ i ] . _top . _myLevelInTree ) > ( _bunchedChains [ i - 1 ] . _top . _myLevelInTree );
+
+                    if ( heigherThanPrivious )
+                    {
+                        _highest = _bunchedChains [ i ];
+                    }
                 }
             }
         }
@@ -95,17 +107,30 @@ namespace DependencyInjector
 
         private void SetUpLowest ( )
         {
-            _lowest = _bunchedChains [ 0 ];
-
-            for ( var i = 1;   i < _bunchedChains . Count;   i++ )
+            if( _lowest == null )
             {
-                var lowerThanPrivious = (_bunchedChains [ i ] . _top . _myLevelInTree)   <   (_bunchedChains [ i - 1 ] . _top . _myLevelInTree);
+                _lowest = _bunchedChains [ 0 ];
 
-                if ( lowerThanPrivious )
+                for ( var i = 1; i < _bunchedChains . Count; i++ )
                 {
-                    _lowest = _bunchedChains [ i ];
+                    var lowerThanPrivious = ( _bunchedChains [ i ] . _top . _myLevelInTree ) < ( _bunchedChains [ i - 1 ] . _top . _myLevelInTree );
+
+                    if ( lowerThanPrivious )
+                    {
+                        _lowest = _bunchedChains [ i ];
+                    }
                 }
             }
+        }
+
+
+        private void SetBeingProcessed ()
+        {
+            if( _beingProcessed == null )
+            {
+                _beingProcessed = _lowest . _top;
+                _beingProcessed . ChangeState ( NodeKind . TopOfLowestInBunch );
+            }           
         }
 
 

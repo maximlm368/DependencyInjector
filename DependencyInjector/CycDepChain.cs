@@ -12,11 +12,17 @@ namespace DependencyInjector
         {
             public int _nodeCounter = 0;
 
-            public List<DependencyChain> _updatedList = null;
+            public List<DependencyChain> _updatedStack = null;
 
-            public List<DependencyChain> _obsoleteChainList = null;
+            public List<DependencyChain> _obsoleteStack = null;
 
             public bool _metSomeTop = false;
+
+            public bool _canRegesterBunch = true;
+
+            public bool _chainContinues = true;
+
+            public bool _firstAfterFork = false;
 
             public Dictionary<ParamNode , List<DependencyChain>> _nodeToChains { get; set; }
 
@@ -25,6 +31,12 @@ namespace DependencyInjector
 
 
         private static string _nullArg = "'map' param in 'RenderOnMap' can not be null";
+
+        private bool _complited = false;
+
+        private ParamNode _beingProcessed = null;
+
+        private bool _isBunchParticipant = false;
 
         private List<ParamNode> _chain { get; set; }
 
@@ -134,31 +146,45 @@ namespace DependencyInjector
         } 
 
 
+        public void MarkAsBunchParticipant ()
+        {
+            _isBunchParticipant = true;
+        }
+
+
         public void ResolveDependency ()
         {
-            var beingProcessed = _bottom;
-
-            while( true )
+            if( ! _isBunchParticipant   &&   ! _complited )
             {
-                try
+                if( _beingProcessed == null )                
                 {
-                    beingProcessed . InitializeNestedObject ( );
-                }
-                catch( NotInitializedChildException )
-                {
-                    break;
+                    _top . InitializeNestedObject ( );
+                    InitializeBottomByTop ( );
+                    _beingProcessed = _bottom;
                 }
 
-                var timeToGoOut = object . ReferenceEquals ( _top ,  beingProcessed . _parent );
-
-                if ( timeToGoOut )
+                while ( true )
                 {
-                    break;
-                }
+                    try
+                    {
+                        _beingProcessed . InitializeNestedObject ( );
+                    }
+                    catch ( NotInitializedChildException )
+                    {
+                        break;
+                    }
 
-                beingProcessed  =  beingProcessed . _parent;
+                    var timeToGoOut = object . ReferenceEquals ( _top ,  _beingProcessed . _parent );
+
+                    if ( timeToGoOut )
+                    {
+                        _complited = true;
+                        break;
+                    }
+
+                    _beingProcessed  =  _beingProcessed . _parent;
+                }
             }
-
         }
 
 
@@ -167,25 +193,22 @@ namespace DependencyInjector
             var paramWrapper = new ParamWrapper ( );
             paramWrapper . _nodeToChains  =  nodeToChainList  ??  throw new ArgumentNullException ( _nullArg );
             paramWrapper . _chainsToBunch  =  chainListToBunch  ??  throw new ArgumentNullException ( _nullArg );
-            var canMeetFork = true;                                                                               // notice first node !!!!!!
-            var chainContinues = true;
-            paramWrapper . _metSomeTop = false;
 
-            while ( chainContinues )
+            while ( paramWrapper . _chainContinues )
             {
-                paramWrapper . _updatedList = null;
+                paramWrapper . _updatedStack = null;
 
                 for (  ;    paramWrapper . _nodeCounter  <  _chain . Count;    paramWrapper . _nodeCounter++ )
                 {
-                    paramWrapper . _obsoleteChainList = null;
+                    paramWrapper . _obsoleteStack = null;
 
-                    if ( (paramWrapper . _nodeCounter == 0)   ||   paramWrapper . _metSomeTop )
+                    if ( (paramWrapper . _nodeCounter == 0)   ||   paramWrapper . _metSomeTop   ||   paramWrapper . _firstAfterFork )
                     {
                         HandleFirstNode ( paramWrapper );
                     }
                     else
                     {
-                        HandleFollowingNodes ( paramWrapper , canMeetFork , chainContinues );
+                        HandleFollowingNodes ( paramWrapper );
                     }
                 }
             }
@@ -195,90 +218,104 @@ namespace DependencyInjector
         private void HandleFirstNode ( ParamWrapper parameters )
         {
             var nodeCounter = parameters . _nodeCounter;
-
             parameters . _metSomeTop  =  false;
+            parameters . _firstAfterFork = false;
 
             if ( parameters . _nodeToChains . ContainsKey ( _chain [ nodeCounter ] ) )
             {
-                parameters . _obsoleteChainList  =  parameters . _nodeToChains [ _chain [ nodeCounter ] ];
-                parameters . _updatedList  =  parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Clone ( );
-                parameters . _updatedList . Add ( this );
-                parameters . _nodeToChains [ _chain [ nodeCounter ] ]  =  parameters . _updatedList;
+                parameters . _obsoleteStack  =  parameters . _nodeToChains [ _chain [ nodeCounter ] ];
+                parameters . _updatedStack  =  parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Clone ( );
+                parameters . _updatedStack . Add ( this );
+                parameters . _nodeToChains [ _chain [ nodeCounter ] ]  =  parameters . _updatedStack;
             }
             else
             {
-                parameters . _updatedList  =  new List<DependencyChain> ( ) { this };
-                parameters . _nodeToChains . Add ( _chain [ nodeCounter ] , parameters . _updatedList );
+                parameters . _updatedStack  =  new List<DependencyChain> ( ) { this };
+                parameters . _nodeToChains . Add ( _chain [ nodeCounter ] , parameters . _updatedStack );
             }
+
+            DetectPrecedingStackHeightChange ( parameters );
         }
 
 
-        private void HandleFollowingNodes ( ParamWrapper parameters , bool canMeetFork , bool chainContinues )
+        private void HandleFollowingNodes ( ParamWrapper parameters )
         {
-            var nodeCounter  =  parameters . _nodeCounter;
-            HandleFollowingNodes ( parameters );
+            HandlePlainNode ( parameters );
 
             var chainEnds  =  ( ( _chain . Count - 2 )   <   parameters . _nodeCounter );
 
             if ( chainEnds )
             {
-                chainContinues = false;
+                parameters . _chainContinues = false;
             }
             else
             {
-                var metSomeTop  =  parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count   <= parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count;
-
-                if ( metSomeTop )
-                {
-                    canMeetFork = true;
-                    parameters . _metSomeTop = true;
-                    return;
-                }
-
-                var metFork  =  parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count   > parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count;
-
-                if ( metFork   &&   canMeetFork )
-                {
-                    HandlePossibleFork ( parameters , canMeetFork );
-                }
+                DetectPrecedingStackHeightChange ( parameters );
             }
         }
         
 
-        private void HandleFollowingNodes ( ParamWrapper parameters )
+        private void HandlePlainNode ( ParamWrapper parameters )
         {
             var nodeCounter  =  parameters . _nodeCounter;
 
             if ( parameters . _nodeToChains . ContainsKey ( _chain [ nodeCounter ] ) )
             {
-                parameters . _nodeToChains [ _chain [ nodeCounter ] ]  =  parameters . _updatedList;
+                parameters . _nodeToChains [ _chain [ nodeCounter ] ] = parameters . _updatedStack;
             }
             else
             {
-                parameters . _nodeToChains . Add ( _chain [ nodeCounter ] , parameters . _updatedList );
+                parameters . _nodeToChains . Add ( _chain [ nodeCounter ] , parameters . _updatedStack );
+            }
+
+        }
+
+
+        private void DetectPrecedingStackHeightChange ( ParamWrapper parameters )
+        {
+            var nodeCounter = parameters . _nodeCounter;
+            var nextIsSomeTop = (parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count)   <=   (parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count);
+
+            if ( nextIsSomeTop )
+            {
+                parameters . _canRegesterBunch = true;
+                parameters . _metSomeTop = true;
+                return;
+            }
+
+            var isFork = (! parameters . _nodeToChains . ContainsKey ( _chain [ nodeCounter + 1 ] ))   ||  
+                         ( parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count)   >   ((parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count) + 1);
+
+            if ( isFork )
+            {
+                HandleFork ( parameters );
+                parameters . _canRegesterBunch = false;
             }
         }
 
 
-        private void HandlePossibleFork ( ParamWrapper parameters , bool canMeetFork )
+        private void HandleFork ( ParamWrapper parameters )
         {
-            canMeetFork = false;
             var nodeCounter  =  parameters . _nodeCounter;
             var node  =  _chain [ nodeCounter ];
             var renderedChains  =  parameters . _nodeToChains [ node ];
             _chain [ nodeCounter ] . ChangeState ( NodeKind . Fork );
+            parameters . _firstAfterFork = true;
 
-            if ( (parameters . _obsoleteChainList != null)   &&   (parameters . _chainsToBunch . ContainsKey ( parameters . _obsoleteChainList )) )
+            if ( parameters . _canRegesterBunch )
             {
-                var bunch  =  new Bunch ( renderedChains );
-                parameters . _chainsToBunch . Add ( renderedChains , bunch );
-                parameters . _chainsToBunch . Remove ( parameters . _obsoleteChainList );
-            }
-            else
-            {
-                var chains  =  new List<DependencyChain> ( );
-                chains . AddRange ( renderedChains );
-                parameters . _chainsToBunch . Add ( renderedChains , new Bunch ( chains ) );
+                if ( ( parameters . _obsoleteStack != null )   &&   ( parameters . _chainsToBunch . ContainsKey ( parameters . _obsoleteStack ) ) )
+                {
+                    var bunch = new Bunch ( renderedChains );
+                    parameters . _chainsToBunch . Add ( renderedChains , bunch );
+                    parameters . _chainsToBunch . Remove ( parameters . _obsoleteStack );
+                }
+                else
+                {
+                    var chains = new List<DependencyChain> ( );
+                    chains . AddRange ( renderedChains );
+                    parameters . _chainsToBunch . Add ( renderedChains , new Bunch ( chains ) );
+                }
             }
         }
 
