@@ -231,7 +231,7 @@ namespace DependencyInjector
             else
             {
                 parameters . _updatedStack  =  new List<DependencyChain> ( ) { this };
-                parameters . _nodeToChains . Add ( _chain [ nodeCounter ] , parameters . _updatedStack );
+                parameters . _nodeToChains . Add ( _chain [ nodeCounter ] ,  parameters . _updatedStack );
             }
 
             DetectPrecedingStackHeightChange ( parameters );
@@ -261,11 +261,11 @@ namespace DependencyInjector
 
             if ( parameters . _nodeToChains . ContainsKey ( _chain [ nodeCounter ] ) )
             {
-                parameters . _nodeToChains [ _chain [ nodeCounter ] ] = parameters . _updatedStack;
+                parameters . _nodeToChains [ _chain [ nodeCounter ] ]  =  parameters . _updatedStack;
             }
             else
             {
-                parameters . _nodeToChains . Add ( _chain [ nodeCounter ] , parameters . _updatedStack );
+                parameters . _nodeToChains . Add ( _chain [ nodeCounter ] ,  parameters . _updatedStack );
             }
 
         }
@@ -274,22 +274,39 @@ namespace DependencyInjector
         private void DetectPrecedingStackHeightChange ( ParamWrapper parameters )
         {
             var nodeCounter = parameters . _nodeCounter;
-            var nextIsSomeTop = (parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count)   <=   (parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count);
 
-            if ( nextIsSomeTop )
+            if ( _chain . Count   >   (nodeCounter + 1) )
             {
-                parameters . _canRegesterBunch = true;
-                parameters . _metSomeTop = true;
-                return;
+                var nextIsSomeTop = ( parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count )  <=  
+                                    ( parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count );
+
+                if ( nextIsSomeTop )
+                {
+                    parameters . _canRegesterBunch = true;
+                    parameters . _metSomeTop = true;
+                    return;
+                }
+
+                var isNewFork = false;
+
+                try
+                {
+                isNewFork = ( !parameters . _nodeToChains . ContainsKey ( _chain [ nodeCounter + 1 ] ) ) ||
+                            ( ( parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count ) > ( parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count + 1 ) );
+                }
+                catch( System . Collections . Generic . KeyNotFoundException )
+                {
+                
+                }
+
+                if ( isNewFork )
+                {
+                    HandleFork ( parameters );
+                }
             }
-
-            var isFork = (! parameters . _nodeToChains . ContainsKey ( _chain [ nodeCounter + 1 ] ))   ||  
-                         ( parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count)   >   ((parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count) + 1);
-
-            if ( isFork )
+            else
             {
-                HandleFork ( parameters );
-                parameters . _canRegesterBunch = false;
+                parameters . _chainContinues = false;
             }
         }
 
@@ -316,6 +333,8 @@ namespace DependencyInjector
                     chains . AddRange ( renderedChains );
                     parameters . _chainsToBunch . Add ( renderedChains , new Bunch ( chains ) );
                 }
+
+                parameters . _canRegesterBunch = false;
             }
         }
 
