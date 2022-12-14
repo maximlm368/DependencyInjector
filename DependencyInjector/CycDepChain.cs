@@ -6,7 +6,7 @@ using System . Reflection;
 
 namespace DependencyInjector
 {
-    public class DependencyChain : IComparable
+    public class DependencyChain : IComparable, IGenderTreeNode
     {
         private class ParamWrapper 
         {
@@ -22,7 +22,7 @@ namespace DependencyInjector
 
             public bool _chainContinues = true;
 
-            public bool _firstAfterFork = false;
+            public bool _isStartAfterFork = false;
 
             public Dictionary<ParamNode , List<DependencyChain>> _nodeToChains { get; set; }
 
@@ -36,15 +36,17 @@ namespace DependencyInjector
 
         private ParamNode _beingProcessed = null;
 
-        private bool _isBunchParticipant = false;
-
         private List<ParamNode> _chain { get; set; }
+
+        public bool _isBunched { get; set; }
 
         public ParamNode _top { get; private set; }
 
         public ParamNode _bottom { get; private set; }
 
-       // private bool _IsEmpty { get; set; }
+        public bool renderedOnRelation { get; set; }
+
+        // private bool _IsEmpty { get; set; }
 
 
         public DependencyChain ( )
@@ -65,7 +67,8 @@ namespace DependencyInjector
             _chain = nodes;
             _bottom = _chain . First ( );
             _top = _chain . Last ( );
-           // _IsEmpty = false;
+            _isBunched = false;
+            // _IsEmpty = false;
 
         }
 
@@ -129,6 +132,24 @@ namespace DependencyInjector
         }
 
 
+        public void AddChild ( IGenderTreeNode child )
+        {
+            throw new NotImplementedException ( );
+        }
+
+
+        public void SetParent ( IGenderTreeNode parent )
+        {
+            throw new NotImplementedException ( );
+        }
+
+
+        public void AddToWayToParent ( ParamNode node )
+        {
+            throw new NotImplementedException ( );
+        }
+
+
         public bool HasThisTop ( ParamNode possibleTop )
         {
             if( object . ReferenceEquals ( _top , possibleTop ) )
@@ -143,18 +164,70 @@ namespace DependencyInjector
         public void InitializeBottomByTop ()
         {
             throw new NotImplementedException ( "InitializeBottomByTop" );
-        } 
+        }
 
 
-        public void MarkAsBunchParticipant ()
+        public ParamNode GetNearestOrdinaryAncestor ()
         {
-            _isBunchParticipant = true;
+            return _top . GetNearestOrdinaryAncestor ( );
+        }
+
+
+        public Bunch GetBunchYouAreBunchedIn ( ParamNode beingProcessed, 
+                                               Dictionary <ParamNode, List<DependencyChain>> nodeToChainStack ,   Dictionary <List<DependencyChain>, Bunch> chainStackToBunch )
+        {
+            var currentIndex  =  _chain . IndexOf ( beingProcessed );
+            Bunch bunch = null;
+
+            for ( ;   currentIndex  >  _chain . Count;    currentIndex ++ )
+            {
+                if ( _chain [ currentIndex ] . _nodeType . _kind  ==  NodeKind . Fork )
+                {
+                    try
+                    {
+                        bunch = GetBunch ( beingProcessed , nodeToChainStack , chainStackToBunch );
+                    }
+                    catch( System . Collections . Generic . KeyNotFoundException )
+                    {
+                        break;
+                    }
+                }
+            }
+
+            for ( ;    currentIndex  >  _chain . Count;    currentIndex -- )
+            {
+                try
+                {
+                    bunch = GetBunch ( beingProcessed , nodeToChainStack , chainStackToBunch );
+                }
+                catch ( System . Collections . Generic . KeyNotFoundException )
+                {
+
+                }
+            }
+
+            if( bunch == null )
+            {
+                throw new NotBunchedChainException;
+            }
+
+            return bunch;
+        }
+
+
+        private Bunch GetBunch ( ParamNode beingProcessed ,
+                                               Dictionary<ParamNode , List<DependencyChain>> nodeToChainStack , Dictionary<List<DependencyChain> , Bunch> chainStackToBunch )
+        {
+            Bunch bunch = null;
+            var chainStack = nodeToChainStack [ beingProcessed ];
+            bunch = chainStackToBunch [ chainStack ];
+            return bunch;
         }
 
 
         public void ResolveDependency ()
         {
-            if( ! _isBunchParticipant   &&   ! _complited )
+            if( ! _isBunched   &&   ! _complited )
             {
                 if( _beingProcessed == null )                
                 {
@@ -188,28 +261,31 @@ namespace DependencyInjector
         }
 
 
-        public void RenderOnMap ( Dictionary <ParamNode , List <DependencyChain>> nodeToChainList,   Dictionary <List <DependencyChain>, Bunch> chainListToBunch )
+        public void RenderOnMap ( Dictionary <ParamNode , List <DependencyChain>> nodeToChainStack,   Dictionary <List <DependencyChain>, Bunch> chainStackToBunch )
         {
             var paramWrapper = new ParamWrapper ( );
-            paramWrapper . _nodeToChains  =  nodeToChainList  ??  throw new ArgumentNullException ( _nullArg );
-            paramWrapper . _chainsToBunch  =  chainListToBunch  ??  throw new ArgumentNullException ( _nullArg );
+            paramWrapper . _nodeToChains  =  nodeToChainStack  ??  throw new ArgumentNullException ( _nullArg );
+            paramWrapper . _chainsToBunch  =  chainStackToBunch  ??  throw new ArgumentNullException ( _nullArg );
+            paramWrapper . _updatedStack = null;
+            paramWrapper . _obsoleteStack = null;
 
             while ( paramWrapper . _chainContinues )
             {
-                paramWrapper . _updatedStack = null;
+                if ( ( paramWrapper . _nodeCounter == 0 )   ||   paramWrapper . _metSomeTop   ||   paramWrapper . _isStartAfterFork )
+                {
+                    HandleFirstNode ( paramWrapper );
+                }
+                else
+                {
+                    HandlePlainNode ( paramWrapper );
+                    DetectPrecedingStackHeightChange ( paramWrapper );
+                }
+
+                paramWrapper . _nodeCounter++;
 
                 for (  ;    paramWrapper . _nodeCounter  <  _chain . Count;    paramWrapper . _nodeCounter++ )
                 {
-                    paramWrapper . _obsoleteStack = null;
 
-                    if ( (paramWrapper . _nodeCounter == 0)   ||   paramWrapper . _metSomeTop   ||   paramWrapper . _firstAfterFork )
-                    {
-                        HandleFirstNode ( paramWrapper );
-                    }
-                    else
-                    {
-                        HandleFollowingNodes ( paramWrapper );
-                    }
                 }
             }
         }
@@ -219,7 +295,6 @@ namespace DependencyInjector
         {
             var nodeCounter = parameters . _nodeCounter;
             parameters . _metSomeTop  =  false;
-            parameters . _firstAfterFork = false;
 
             if ( parameters . _nodeToChains . ContainsKey ( _chain [ nodeCounter ] ) )
             {
@@ -234,24 +309,8 @@ namespace DependencyInjector
                 parameters . _nodeToChains . Add ( _chain [ nodeCounter ] ,  parameters . _updatedStack );
             }
 
+            parameters . _isStartAfterFork = false;
             DetectPrecedingStackHeightChange ( parameters );
-        }
-
-
-        private void HandleFollowingNodes ( ParamWrapper parameters )
-        {
-            HandlePlainNode ( parameters );
-
-            var chainEnds  =  ( ( _chain . Count - 2 )   <   parameters . _nodeCounter );
-
-            if ( chainEnds )
-            {
-                parameters . _chainContinues = false;
-            }
-            else
-            {
-                DetectPrecedingStackHeightChange ( parameters );
-            }
         }
         
 
@@ -287,17 +346,7 @@ namespace DependencyInjector
                     return;
                 }
 
-                var isNewFork = false;
-
-                try
-                {
-                isNewFork = ( !parameters . _nodeToChains . ContainsKey ( _chain [ nodeCounter + 1 ] ) ) ||
-                            ( ( parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count ) > ( parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count + 1 ) );
-                }
-                catch( System . Collections . Generic . KeyNotFoundException )
-                {
-                
-                }
+                var isNewFork = DetectFork ( parameters );
 
                 if ( isNewFork )
                 {
@@ -311,13 +360,40 @@ namespace DependencyInjector
         }
 
 
+        private bool DetectFork ( ParamWrapper parameters )
+        {
+            var nodeCounter = parameters . _nodeCounter;
+            var isNewFork = false;
+
+            try
+            {
+                isNewFork = ( 
+                               ( parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count )   >   1 
+                            ) 
+                              &&
+                            ( 
+                               ( parameters . _nodeToChains [ _chain [ nodeCounter ] ] . Count ) 
+                                  > 
+                               ( parameters . _nodeToChains [ _chain [ nodeCounter + 1 ] ] . Count + 1 ) 
+                            );
+            }
+            catch ( System . Collections . Generic . KeyNotFoundException )
+            {
+                // it means dictionary 'parameters . _nodeToChains'  does not contains next node '[ _chain [ nodeCounter + 1 ] ]'
+
+                isNewFork = true;
+            }
+
+            return isNewFork;
+        }
+
+
         private void HandleFork ( ParamWrapper parameters )
         {
             var nodeCounter  =  parameters . _nodeCounter;
             var node  =  _chain [ nodeCounter ];
             var renderedChains  =  parameters . _nodeToChains [ node ];
             _chain [ nodeCounter ] . ChangeState ( NodeKind . Fork );
-            parameters . _firstAfterFork = true;
 
             if ( parameters . _canRegesterBunch )
             {
@@ -336,7 +412,10 @@ namespace DependencyInjector
 
                 parameters . _canRegesterBunch = false;
             }
+
+            parameters . _isStartAfterFork = true;
         }
+
 
 
         //private int Compare ( DependencyChain comparable )

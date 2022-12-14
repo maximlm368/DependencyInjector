@@ -4,7 +4,7 @@ using System . Text;
 
 namespace DependencyInjector
 {
-    public class Bunch
+    public class Bunch : IGenderTreeNode
     {
         private static string _nullInsideChain = "param 'chains' must contain only not null items";
 
@@ -14,13 +14,15 @@ namespace DependencyInjector
        
         private List<DependencyChain> _bunchedChains;
 
-        private DependencyChain _highest;
+        public DependencyChain _highest { get; private set; }
 
         private DependencyChain _lowest;
 
         private ParamNode _beingProcessed;
 
         private bool _complited = false;
+
+        public bool renderedOnRelation { get; set; }
 
 
         public Bunch ( List<DependencyChain> chains )
@@ -37,7 +39,7 @@ namespace DependencyInjector
                     throw new ArgumentException ( _nullInsideChain );
                 }
 
-                chains [ i ] . MarkAsBunchParticipant ( );
+                chains [ i ] . _isBunched = true;
             }
 
             _bunchedChains = new List<DependencyChain> ( );
@@ -150,6 +152,24 @@ namespace DependencyInjector
         }
 
 
+        public void AddChild ( IGenderTreeNode child )
+        {
+            throw new NotImplementedException ( );
+        }
+
+
+        public void SetParent ( IGenderTreeNode parent )
+        {
+            throw new NotImplementedException ( );
+        }
+
+
+        public void AddToWayToParent ( ParamNode node )
+        {
+            throw new NotImplementedException ( );
+        }
+
+
         //public void AddChain ( DependencyChain chain )
         //{
         //    if( chain == null )
@@ -163,24 +183,4 @@ namespace DependencyInjector
 
     }
 
-
-
-    public class ChainListComparer : IEqualityComparer <List <DependencyChain>>
-    {
-        public bool Equals ( List<DependencyChain> x , List<DependencyChain> y )
-        {
-            if ( object . ReferenceEquals ( x , y ) )
-            {
-                return true;
-            }
-
-            return false;
-        }
-
-
-        public int GetHashCode ( List<DependencyChain> obj )
-        {
-            return obj . GetHashCode ( );
-        }
-    }
 }

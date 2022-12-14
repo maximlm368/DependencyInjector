@@ -459,8 +459,50 @@ namespace DependencyInjector
 
 
 
+    public class ChainListComparer : IEqualityComparer<List<DependencyChain>>
+    {
+        public bool Equals ( List<DependencyChain> x , List<DependencyChain> y )
+        {
+            if ( object . ReferenceEquals ( x , y ) )
+            {
+                return true;
+            }
+
+            return false;
+        }
+
+
+        public int GetHashCode ( List<DependencyChain> obj )
+        {
+            return obj . GetHashCode ( );
+        }
+    }
+
+
+
     class NotInitializedChildException : Exception
     {
     
     }
+
+
+
+    class NotBunchedChainException : Exception
+    {
+    
+    }
+
+
+
+    public interface IGenderTreeNode 
+    {
+        void AddChild ( IGenderTreeNode child );
+
+        void SetParent ( IGenderTreeNode parent );
+
+        void AddToWayToParent ( ParamNode node );
+
+        bool renderedOnRelation { get; set; }
+    }
+
 }

@@ -20,6 +20,10 @@ namespace DependencyInjector
 
         private int _deepestLevel { get; set; }
 
+        private Dictionary<ParamNode , List<DependencyChain>> _nodeToChainStack { get; set; }
+
+        private Dictionary<List<DependencyChain> , Bunch> _chainStackToBunch { get; set; }
+
 
         public DependencyTree ( Type rootType )
         {
@@ -27,6 +31,8 @@ namespace DependencyInjector
             _nodes = new List<ParamNode> ( );
             _nodes . Add ( _root );
             _bunches = new List<Bunch> ( );
+            var nodeToChainStack = new Dictionary<ParamNode , List<DependencyChain>> ( );
+            var chainStackToBunch = new Dictionary<List<DependencyChain> , Bunch> ( new ChainListComparer ( ) );
         }
 
 
@@ -107,15 +113,12 @@ namespace DependencyInjector
 
         private void SetBunches ( )
         {
-            var nodeToChainList = new Dictionary <ParamNode , List <DependencyChain>> ( );
-            var chainListToBunch = new Dictionary <List<DependencyChain>, Bunch> ( new ChainListComparer( ) );
-
             for ( var i = 0;   i < _chains . Count;   i++ )
             {
-                _chains [ i ] . RenderOnMap ( nodeToChainList, chainListToBunch );
+                _chains [ i ] . RenderOnMap ( _nodeToChainStack, _chainStackToBunch );
             }
 
-            var values = chainListToBunch . Values;
+            var values = _chainStackToBunch . Values;
             var enumerator = values . GetEnumerator ( );
             _bunches . Add ( enumerator . Current );
 
@@ -126,7 +129,7 @@ namespace DependencyInjector
         }
 
 
-        private void InitializeNodes ()
+        private void InitializeNodes ( )
         {
             for ( var i = _nodes . Count - 1;    i > 0;    i-- )
             {
@@ -137,6 +140,86 @@ namespace DependencyInjector
                 catch ( NotInitializedChildException )
                 {
                     continue;
+                }
+            }
+        }
+
+        
+        private void ArrangeChains ( )
+        {
+            var leaves = new List <IGenderTreeNode> ( );
+
+            for ( var i = 0;   i < _chains . Count;   i++ )
+            {
+                IGenderTreeNode possibleDescendant = null;
+                var beingProcessedNode  =  _chains [ i ] . _top;
+                SetUpPossibleRelationMember ( _chains [ i ] , possibleDescendant , beingProcessedNode );
+
+                if( possibleDescendant . renderedOnRelation )
+                {
+                    continue;
+                }
+
+                leaves . Add ( possibleDescendant );
+                ConductRelationUntillRelativeIsRenderedOrAbsents ( leaves , possibleDescendant , beingProcessedNode );
+            }
+        }
+
+
+        private void SetUpPossibleRelationMember ( DependencyChain chainPresentsPossibleRelative , IGenderTreeNode possibleRelative , ParamNode entryInFirstParam )
+        {
+            if ( chainPresentsPossibleRelative . _isBunched )
+            {
+                possibleRelative = chainPresentsPossibleRelative . GetBunchYouAreBunchedIn ( entryInFirstParam , _nodeToChainStack , _chainStackToBunch );
+                entryInFirstParam = ( ( Bunch ) possibleRelative ) . _highest . _top;
+            }
+            else
+            {
+                possibleRelative = chainPresentsPossibleRelative;
+                entryInFirstParam = chainPresentsPossibleRelative . _top;
+            }
+        }
+
+
+        private void ConductRelationUntillRelativeIsRenderedOrAbsents ( List<IGenderTreeNode> leaves, IGenderTreeNode possibleDescendant, ParamNode nodeBetweenRelatives )
+        {
+            IGenderTreeNode ancestor = null;
+
+            while ( true )
+            {
+                if ( leaves . Contains ( possibleDescendant ) )
+                {
+                    leaves . Remove ( possibleDescendant );
+                    break;
+                }
+
+                if ( possibleDescendant . renderedOnRelation )
+                {
+                    break;
+                }
+
+                nodeBetweenRelatives = nodeBetweenRelatives . _parent;
+                var rootIsAchieved = ( nodeBetweenRelatives == null );
+
+                if ( rootIsAchieved )
+                {
+                    possibleDescendant . renderedOnRelation = true;
+                    break;
+                }
+
+                if ( _nodeToChainStack . ContainsKey ( nodeBetweenRelatives ) )
+                {
+                    var presentingAncestorChain = _nodeToChainStack [ nodeBetweenRelatives ] [ 0 ];
+                    var accomplishedDescendant = possibleDescendant;
+                    SetUpPossibleRelationMember ( presentingAncestorChain , ancestor , nodeBetweenRelatives );
+                    ancestor . AddChild ( accomplishedDescendant );
+                    accomplishedDescendant . SetParent ( ancestor );
+                    accomplishedDescendant . renderedOnRelation = true;
+                    possibleDescendant = ancestor;
+                }
+                else
+                {
+                    possibleDescendant . AddToWayToParent ( nodeBetweenRelatives );
                 }
             }
         }

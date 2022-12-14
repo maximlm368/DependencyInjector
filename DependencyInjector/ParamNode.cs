@@ -342,10 +342,30 @@ namespace DependencyInjector
         }
 
 
-        public void InitializePreliminarily ()
+        public ParamNode GetNearestOrdinaryAncestor ()
         {
-            throw new NotImplementedException ( "InitializePreliminarily" );
+            ParamNode ancestor = null;
+            var beingProcessed = _parent;
+
+            while ( true )
+            {
+                if( beingProcessed != null   &&   (beingProcessed . _nodeType . _kind  ==  NodeKind.Ordinary) )
+                {
+                    ancestor = beingProcessed;
+                    break;
+                }
+
+                beingProcessed = beingProcessed . _parent;
+            }
+
+            return ancestor;
         }
+
+
+        //public void InitializePreliminarily ()
+        //{
+        //    throw new NotImplementedException ( "InitializePreliminarily" );
+        //}
 
     }
 
