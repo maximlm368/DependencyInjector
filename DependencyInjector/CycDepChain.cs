@@ -32,6 +32,8 @@ namespace DependencyInjector
 
         private static string _nullArg = "'map' param in 'RenderOnMap' can not be null";
 
+        private static int _idCounter = 0;
+
         private bool _complited = false;
 
         private ParamNode _beingProcessed = null;
@@ -40,11 +42,13 @@ namespace DependencyInjector
 
         public bool _isBunched { get; set; }
 
+        public int _id { get; private set; }
+
         public ParamNode _top { get; private set; }
 
         public ParamNode _bottom { get; private set; }
 
-        public bool renderedOnRelation { get; set; }
+        public bool _renderedOnRelation { get; set; }
 
         // private bool _IsEmpty { get; set; }
 
@@ -68,6 +72,9 @@ namespace DependencyInjector
             _bottom = _chain . First ( );
             _top = _chain . Last ( );
             _isBunched = false;
+            _id = _idCounter;
+            _idCounter++;
+
             // _IsEmpty = false;
 
         }

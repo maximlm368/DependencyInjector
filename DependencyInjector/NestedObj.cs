@@ -25,7 +25,10 @@ namespace DependencyInjector
                 throw new Exception ( ");
             }
 
-            private set { }
+            private set 
+            {
+                _objectItself = value;
+            }
         }
 
         public bool _isInitiolized { get; private set; }

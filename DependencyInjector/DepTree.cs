@@ -18,6 +18,8 @@ namespace DependencyInjector
 
         private List<Bunch> _bunches { get; set; }
 
+        private List<LinkedBunches> _linkedBunches { get; set; }
+
         private int _deepestLevel { get; set; }
 
         private Dictionary<ParamNode , List<DependencyChain>> _nodeToChainStack { get; set; }
@@ -129,6 +131,55 @@ namespace DependencyInjector
         }
 
 
+        private void SetLinkedBunches ( )
+        {
+            for ( var i = 0;    i < _bunches . Count - 1;    i++ )
+            {
+                if ( ! _bunches [ i ] . _linked )
+                {
+                    var linked = new List<Bunch> ( );
+                    var chains = _bunches [ i ] . GetBunchedChains ( );
+                    var chainIds = chains . GetListOfItemPiece ( ( chain ) => { return chain . _id; } );
+                    var mask = chainIds . PrintExistenceMask ( );
+                    SearchLinkedBunches ( mask , i+1 , linked );
+
+                    if ( linked . Count > 0 )
+                    {
+                        _bunches [ i ] . _linked = true;
+                        linked . Add ( _bunches [ i ] );
+                        _linkedBunches . Add ( new LinkedBunches( linked ) );
+                    }
+                }
+
+
+            }
+        }
+
+
+        private void SearchLinkedBunches ( IList<bool> mask,  int scratch,  List<Bunch> linked )
+        {
+            for ( var j = scratch;    j < _bunches . Count - 1;    j++ )
+            {
+                if ( ! _bunches [ j ] . _linked )
+                {
+                    var chains = _bunches [ j ] . GetBunchedChains ( );
+                    var chainIds = chains . GetListOfItemPiece ( ( chain ) => { return chain . _id; } );
+                    var intersection = chainIds . GetIntersectionWhithMask ( mask );
+
+                    if ( intersection . Count > 0 )
+                    {
+                        _bunches [ j ] . _linked = true;
+                        linked . Add ( _bunches [ j ] );
+                        var currentMask = chainIds . PrintExistenceMask ( );
+                        SearchLinkedBunches ( currentMask , j+1 , linked );
+                    }
+                }
+
+
+            }
+        }
+
+
         private void InitializeNodes ( )
         {
             for ( var i = _nodes . Count - 1;    i > 0;    i-- )
@@ -145,7 +196,7 @@ namespace DependencyInjector
         }
 
         
-        private void ArrangeChains ( )
+        private void ArrangeRelations ( )
         {
             var leaves = new List <IGenderTreeNode> ( );
 
@@ -155,7 +206,7 @@ namespace DependencyInjector
                 var beingProcessedNode  =  _chains [ i ] . _top;
                 SetUpPossibleRelationMember ( _chains [ i ] , possibleDescendant , beingProcessedNode );
 
-                if( possibleDescendant . renderedOnRelation )
+                if( possibleDescendant . _renderedOnRelation )
                 {
                     continue;
                 }
@@ -183,8 +234,6 @@ namespace DependencyInjector
 
         private void ConductRelationUntillRelativeIsRenderedOrAbsents ( List<IGenderTreeNode> leaves, IGenderTreeNode possibleDescendant, ParamNode nodeBetweenRelatives )
         {
-            IGenderTreeNode ancestor = null;
-
             while ( true )
             {
                 if ( leaves . Contains ( possibleDescendant ) )
@@ -193,7 +242,7 @@ namespace DependencyInjector
                     break;
                 }
 
-                if ( possibleDescendant . renderedOnRelation )
+                if ( possibleDescendant . _renderedOnRelation )
                 {
                     break;
                 }
@@ -203,71 +252,36 @@ namespace DependencyInjector
 
                 if ( rootIsAchieved )
                 {
-                    possibleDescendant . renderedOnRelation = true;
+                    possibleDescendant . _renderedOnRelation = true;
                     break;
                 }
 
-                if ( _nodeToChainStack . ContainsKey ( nodeBetweenRelatives ) )
-                {
-                    var presentingAncestorChain = _nodeToChainStack [ nodeBetweenRelatives ] [ 0 ];
-                    var accomplishedDescendant = possibleDescendant;
-                    SetUpPossibleRelationMember ( presentingAncestorChain , ancestor , nodeBetweenRelatives );
-                    ancestor . AddChild ( accomplishedDescendant );
-                    accomplishedDescendant . SetParent ( ancestor );
-                    accomplishedDescendant . renderedOnRelation = true;
-                    possibleDescendant = ancestor;
-                }
-                else
-                {
-                    possibleDescendant . AddToWayToParent ( nodeBetweenRelatives );
-                }
+                SetUpAncestorIfItFound ( nodeBetweenRelatives , possibleDescendant );
             }
         }
 
 
-        //private void MapChains (  )
-        //{
-        //    for ( var i = 0;   i < _dependencyChains . Count;   i++ )
-        //    {
-        //        nodeMap . Add ( _dependencyChains [ i ] , new Bunch ( ) );
-        //    }
-        //}
+        private void SetUpAncestorIfItFound ( ParamNode nodeBetweenRelatives ,  IGenderTreeNode possibleDescendant )
+        {
+            IGenderTreeNode ancestor = null;
 
+            if ( _nodeToChainStack . ContainsKey ( nodeBetweenRelatives ) )
+            {
+                var nodeInAncestor = nodeBetweenRelatives;
+                var presentingAncestorChain = _nodeToChainStack [ nodeInAncestor ] [ 0 ];
+                var accomplishedDescendant = possibleDescendant;
+                SetUpPossibleRelationMember ( presentingAncestorChain , ancestor , nodeInAncestor );
+                ancestor . AddChild ( accomplishedDescendant );
+                accomplishedDescendant . SetParent ( ancestor );
+                accomplishedDescendant . _renderedOnRelation = true;
+                possibleDescendant = ancestor;
+            }
+            else
+            {
+                possibleDescendant . AddToWayToParent ( nodeBetweenRelatives );
+            }
+        }
 
-        //private bool FindWrapper ( Assembly assemblyForSearching , DependencyChain chain )
-        //{
-        //    var types = assemblyForSearching . GetExportedTypes ( );
-
-        //    for ( var i = 0;   i < types . Length;   i++ )
-        //    {
-
-        //    }
-
-        //    return false;
-        //}
-
-
-        //private void FindChainIntersections ( )
-        //{
-        //    var forks = new List<ParamNode> ( );
-
-        //    var arr = new List<ParamNode> [ _deepestLevel ];
-
-        //    for ( var i = 0;   i < _dependencyChains . Count;   i++ )
-        //    {
-        //        this . _dependencyChains [ i ] . Render ( arr );
-        //    }
-
-        //    for ( var i = 0;   i < arr . Length;   i++ )
-        //    {
-        //        forks . AddRange ( arr [ i ] . FindRepeated ( ) );
-        //    }
-
-        //    for ( var i = 0; i < forks . Count; i++ )
-        //    {
-        //        forks [ i ] . SetFork ( );
-        //    }
-        //}
 
     }
 }

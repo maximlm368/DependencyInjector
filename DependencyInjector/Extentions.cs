@@ -73,6 +73,9 @@ namespace DependencyInjector
         }
 
 
+
+
+
         public static bool ContainsItemWithParticularPart <T1,T2> ( this List<T1> list , T2 wantedPart , Func<T1,T2> partExtracter )
         {
             var result = false;
@@ -90,6 +93,48 @@ namespace DependencyInjector
             }
 
             return result;
+        }
+
+
+        public static IList<bool> PrintExistenceMask ( this List<int> list )
+        {
+            if( list.Count > 0     &&     list[0] . GetType() . FullName == "System.Int32" )
+            {
+                var arraySize = list . Max ( );
+                var array = new bool [ arraySize ];
+
+                for ( var i = 0;    i < list . Count;    i++ )
+                {
+                    array [ list [ i ] ] = true;
+                }
+
+                return array;
+            }
+
+            return new bool [ 0 ];
+        }
+
+
+        public static List<int> GetIntersectionWhithMask ( this List<int> list,  IList<bool> mask )
+        {
+            var intersection = new List<int> ( );
+
+            for ( var i = 0;    i < list . Count;    i++ )
+            {
+                try
+                {
+                    if ( mask [ list [ i ] ] )
+                    {
+                        intersection . Add ( list [ i ] );
+                    }
+                }
+                catch ( ArgumentOutOfRangeException )
+                {
+                    continue;
+                }
+            }
+
+            return intersection;
         }
 
 
@@ -174,7 +219,7 @@ namespace DependencyInjector
         }
 
 
-        public static List<T> FindRepeated<T> ( this List<T> list )
+        public static List<T> GatherRepeated <T> ( this List<T> list )
         {
             var result = new List<T> ( );
 
@@ -502,7 +547,7 @@ namespace DependencyInjector
 
         void AddToWayToParent ( ParamNode node );
 
-        bool renderedOnRelation { get; set; }
+        bool _renderedOnRelation { get; set; }
     }
 
 }

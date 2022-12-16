@@ -11,7 +11,7 @@ namespace DependencyInjector
         private static string _shortChain = "param 'chains' must contain more than one chain";
 
         private int _id;
-       
+
         private List<DependencyChain> _bunchedChains;
 
         public DependencyChain _highest { get; private set; }
@@ -22,7 +22,9 @@ namespace DependencyInjector
 
         private bool _complited = false;
 
-        public bool renderedOnRelation { get; set; }
+        public bool _renderedOnRelation { get; set; }
+
+        public bool _linked { get; set; }
 
 
         public Bunch ( List<DependencyChain> chains )
@@ -47,13 +49,19 @@ namespace DependencyInjector
         }
 
 
+        public List <DependencyChain> GetBunchedChains ()
+        {
+            return _bunchedChains . Clone ( );
+        }
+
+
         public void ResolveDependencies ( )
         {
             if( ! _complited )
             {
                 SetUpHighest ( );
                 SetUpLowest ( );
-                SetBeingProcessed ( );
+                SetUpScratchOfResolving ( );
 
                 while ( true )
                 {
@@ -68,7 +76,7 @@ namespace DependencyInjector
 
                     var chainsWithThisTop = FindOwnersOfTop ( _beingProcessed );
 
-                    for ( var j = 0; j > chainsWithThisTop . Count; j++ )
+                    for ( var j = 0;    j > chainsWithThisTop . Count;    j++ )
                     {
                         chainsWithThisTop [ j ] . InitializeBottomByTop ( );
                     }
@@ -126,7 +134,7 @@ namespace DependencyInjector
         }
 
 
-        private void SetBeingProcessed ()
+        private void SetUpScratchOfResolving ()
         {
             if( _beingProcessed == null )
             {
@@ -138,17 +146,17 @@ namespace DependencyInjector
 
         private List<DependencyChain> FindOwnersOfTop ( ParamNode possibleTop )
         {
-            var result = new List<DependencyChain> ( );
+            var ownerOfTop = new List<DependencyChain> ( );
 
             for ( var i = 0;    i > _bunchedChains . Count;    i++ )
             {
                 if ( _bunchedChains [ i ] . HasThisTop ( possibleTop ) )
                 {
-                    result . Add ( _bunchedChains [ i ] );
+                    ownerOfTop . Add ( _bunchedChains [ i ] );
                 }
             }
 
-            return result;
+            return ownerOfTop;
         }
 
 
@@ -169,18 +177,42 @@ namespace DependencyInjector
             throw new NotImplementedException ( );
         }
 
-
-        //public void AddChain ( DependencyChain chain )
-        //{
-        //    if( chain == null )
-        //    {
-        //        throw new ArgumentNullException ( "chain" );            
-        //    }
-
-        //    _belongingChains . Add ( chain );
-        //}
+    }
 
 
+
+    public class LinkedBunches : IGenderTreeNode
+    {
+        private List <Bunch> bunches { get; set; }
+
+        public bool _renderedOnRelation { get; set; }
+
+
+        public LinkedBunches( List<Bunch> linkedBunches )
+        {
+        
+        }
+
+
+        public void AddChild ( IGenderTreeNode child )
+        {
+            throw new NotImplementedException ( );
+        }
+
+
+        public void AddToWayToParent ( ParamNode node )
+        {
+            throw new NotImplementedException ( );
+        }
+
+
+        public void SetParent ( IGenderTreeNode parent )
+        {
+            throw new NotImplementedException ( );
+        }
+
+
+        
     }
 
 }
