@@ -96,9 +96,9 @@ namespace DependencyInjector
         }
 
 
-        public static IList<bool> PrintExistenceMask ( this List<int> list )
+        public static IList<bool> PrintMaskOfPresence ( this List<int> list )
         {
-            if( list.Count > 0     &&     list[0] . GetType() . FullName == "System.Int32" )
+            if( list.Count > 0 )
             {
                 var arraySize = list . Max ( );
                 var array = new bool [ arraySize ];
@@ -504,9 +504,19 @@ namespace DependencyInjector
 
 
 
-    public class ChainListComparer : IEqualityComparer<List<DependencyChain>>
+    public static class ObjectExtention
     {
-        public bool Equals ( List<DependencyChain> x , List<DependencyChain> y )
+        public static string GetCtorParamName ( this Object beingProcessed,  int ctorNumber,  int paramNumber )
+        { 
+           return beingProcessed . GetType ( ) . GetConstructors ( ) [ ctorNumber ] . GetParameters ( ) [ paramNumber ] . Name;
+        }
+    }
+
+
+
+    public class CircuitListComparer : IEqualityComparer<List<DependencyCircuit>>
+    {
+        public bool Equals ( List<DependencyCircuit> x , List<DependencyCircuit> y )
         {
             if ( object . ReferenceEquals ( x , y ) )
             {
@@ -517,7 +527,7 @@ namespace DependencyInjector
         }
 
 
-        public int GetHashCode ( List<DependencyChain> obj )
+        public int GetHashCode ( List<DependencyCircuit> obj )
         {
             return obj . GetHashCode ( );
         }
@@ -532,22 +542,9 @@ namespace DependencyInjector
 
 
 
-    class NotBunchedChainException : Exception
+    class NotBunchedCircuitException : Exception
     {
     
-    }
-
-
-
-    public interface IGenderTreeNode 
-    {
-        void AddChild ( IGenderTreeNode child );
-
-        void SetParent ( IGenderTreeNode parent );
-
-        void AddToWayToParent ( ParamNode node );
-
-        bool _renderedOnRelation { get; set; }
     }
 
 }

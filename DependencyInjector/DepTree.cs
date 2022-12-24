@@ -8,23 +8,21 @@ namespace DependencyInjector
 {
     public class DependencyTree
     {
-        private DependencyInjection _reflectionTools;
+        private ParamNode _root;
 
-        private ParamNode _root { get; set; }
+        private List<ParamNode> _nodes;
 
-        private List<ParamNode> _nodes { get; set; }
+        private List<DependencyCircuit> _circuits;
 
-        private List<DependencyChain> _chains { get; set; }
+        private List<Bunch> _bunches;
 
-        private List<Bunch> _bunches { get; set; }
+        private List<LinkedBunches> _linkedBunches;
 
-        private List<LinkedBunches> _linkedBunches { get; set; }
+        private int _deepestLevel;
 
-        private int _deepestLevel { get; set; }
+        private Dictionary<ParamNode , List<DependencyCircuit>> _nodeToCircuits;
 
-        private Dictionary<ParamNode , List<DependencyChain>> _nodeToChainStack { get; set; }
-
-        private Dictionary<List<DependencyChain> , Bunch> _chainStackToBunch { get; set; }
+        private Dictionary<List<DependencyCircuit> , Bunch> _circuitsToBunch;
 
 
         public DependencyTree ( Type rootType )
@@ -33,15 +31,14 @@ namespace DependencyInjector
             _nodes = new List<ParamNode> ( );
             _nodes . Add ( _root );
             _bunches = new List<Bunch> ( );
-            var nodeToChainStack = new Dictionary<ParamNode , List<DependencyChain>> ( );
-            var chainStackToBunch = new Dictionary<List<DependencyChain> , Bunch> ( new ChainListComparer ( ) );
+            _nodeToCircuits = new Dictionary<ParamNode , List<DependencyCircuit>> ( );
+            _circuitsToBunch = new Dictionary<List<DependencyCircuit> , Bunch> ( new CircuitListComparer ( ) );
         }
 
 
         public object BuildRootObject ( )
         {
             BuildYourself ( );
-            SetBunches ( );
             InitializeNodes ( );
 
             if ( _root . _nestedObj . _isInitiolized )
@@ -49,18 +46,12 @@ namespace DependencyInjector
                 return _root;
             }
 
-            for ( var i = 0;   i < _bunches . Count;   i++ )
-            {
-                _bunches [ i ] . ResolveDependencies ( );
-            }
-
-            for ( var i = 0;   i < _chains . Count;   i++ )
-            {
-                for ( var j = 0;   j < _chains . Count;   j++ )
-                {
-                    _chains [ j ] . ResolveDependency ( );
-                }
-            }
+            var bunchSetBuilder = new BunchSetBuilder ( _circuits , _nodeToCircuits , _circuitsToBunch );
+            _bunches = bunchSetBuilder . Build ( );
+            SetLinkedBunches ( );
+            var relationArranger = new RelationsArranger ( _circuits , _nodeToCircuits , _circuitsToBunch , _linkedBunches );
+            var leaves = relationArranger . ArrangeRelations ( );
+            InitializeNodes ( );
 
 
 
@@ -87,7 +78,7 @@ namespace DependencyInjector
                 for ( var i = 0;   i < currentLevel . Count;   i++ )
                 {
                     var children = currentLevel [ i ] . DefineChildren ( );
-                    GatherExistingChains ( children );
+                    GatherExistingCircuits ( children );
                     childLevel . AddRange ( children );
                     _nodes . AddRange ( children );
                 }
@@ -103,86 +94,100 @@ namespace DependencyInjector
         }
 
 
-        private void GatherExistingChains ( List<ParamNode> nodeChildren )
+        private void GatherExistingCircuits ( List<ParamNode> nodes )
         {
-            for ( var i = 0;   i < nodeChildren . Count;   i++ )
+            for ( var i = 0;    i < nodes . Count;    i++ )
             {
-                DependencyChain chain = nodeChildren [ i ] . GetDependencyChainFromAncestors ( );
-                _chains . Add ( chain );
+                List<ParamNode> nodeSequence = nodes [ i ] . GetSequenceForDependencyCircuit ( );
+                DependencyCircuit circuit = CreateCircuit ( nodeSequence );
+
+                if ( circuit != null )
+                {
+                     _circuits . Add ( circuit );
+                }
             }
         }
 
-
-        private void SetBunches ( )
+        
+        private DependencyCircuit CreateCircuit ( List <ParamNode> possibleCircuit )
         {
-            for ( var i = 0;   i < _chains . Count;   i++ )
+            DependencyCircuit result = null;
+            possibleCircuit . Reverse ( );
+
+            if ( possibleCircuit . Count  >  2 )
             {
-                _chains [ i ] . RenderOnMap ( _nodeToChainStack, _chainStackToBunch );
+                possibleCircuit . AccomplishForEach<ParamNode>
+                (
+                   ( item ) => { if ( item . GetNodeKind ( )  !=  NodeKind . DependencyCycleParticipant ) { item . ChangeState ( NodeKind . DependencyCycleParticipant ); } }
+                );
+
+                result = new DependencyCircuit ( possibleCircuit );
             }
 
-            var values = _chainStackToBunch . Values;
-            var enumerator = values . GetEnumerator ( );
-            _bunches . Add ( enumerator . Current );
-
-            while ( enumerator . MoveNext ( ) )
-            {
-                _bunches . Add ( enumerator . Current );
-            }
+            return result;
         }
 
 
         private void SetLinkedBunches ( )
         {
+            if( _bunches . Count < 1 )
+            {
+                return;
+            }
+
             for ( var i = 0;    i < _bunches . Count - 1;    i++ )
             {
-                if ( ! _bunches [ i ] . _linked )
+                var beingProcessed = _bunches [ i ];
+
+                if ( ! beingProcessed . _linked )
                 {
                     var linked = new List<Bunch> ( );
-                    var chains = _bunches [ i ] . GetBunchedChains ( );
-                    var chainIds = chains . GetListOfItemPiece ( ( chain ) => { return chain . _id; } );
-                    var mask = chainIds . PrintExistenceMask ( );
-                    SearchLinkedBunches ( mask , i+1 , linked );
+                    var concerneds = new List<int> ( );
+                    concerneds . Add ( i );
+                    var circuits = beingProcessed . GetBunchedCircuits ( );
+                    var circuitIds = circuits . GetListOfItemPiece ( ( circuit ) => { return circuit . _id; } );
+                    var mask = circuitIds . PrintMaskOfPresence ( );
+                    SearchLinkedBunches ( mask , i+1 , linked , concerneds );
 
                     if ( linked . Count > 0 )
                     {
-                        _bunches [ i ] . _linked = true;
-                        linked . Add ( _bunches [ i ] );
+                        beingProcessed . _linked = true;
+                        linked . Add ( beingProcessed );
                         _linkedBunches . Add ( new LinkedBunches( linked ) );
                     }
                 }
-
-
             }
         }
 
 
-        private void SearchLinkedBunches ( IList<bool> mask,  int scratch,  List<Bunch> linked )
+        private void SearchLinkedBunches ( IList<bool> mask,  int scratch,  List<Bunch> linked,  List<int> concerneds )
         {
             for ( var j = scratch;    j < _bunches . Count - 1;    j++ )
             {
-                if ( ! _bunches [ j ] . _linked )
+                var mustBeIgnored = concerneds . Contains ( j );
+
+                if ( ! _bunches [ j ] . _linked      &&      ! mustBeIgnored )
                 {
-                    var chains = _bunches [ j ] . GetBunchedChains ( );
-                    var chainIds = chains . GetListOfItemPiece ( ( chain ) => { return chain . _id; } );
-                    var intersection = chainIds . GetIntersectionWhithMask ( mask );
+                    var circuits = _bunches [ j ] . GetBunchedCircuits ( );
+                    var circuitIds = circuits . GetListOfItemPiece ( ( circuit ) => { return circuit . _id; } );
+                    var intersection = circuitIds . GetIntersectionWhithMask ( mask );
 
                     if ( intersection . Count > 0 )
                     {
                         _bunches [ j ] . _linked = true;
                         linked . Add ( _bunches [ j ] );
-                        var currentMask = chainIds . PrintExistenceMask ( );
-                        SearchLinkedBunches ( currentMask , j+1 , linked );
+                        concerneds . Add ( j );
+                        var currentMask = circuitIds . PrintMaskOfPresence ( );
+                        SearchLinkedBunches ( currentMask , 0 , linked , concerneds );
                     }
                 }
-
-
             }
         }
 
 
         private void InitializeNodes ( )
         {
-            for ( var i = _nodes . Count - 1;    i > 0;    i-- )
+            for ( var i = _nodes . Count - 1;    i >= 0;    i-- )
             {
                 try
                 {
@@ -195,92 +200,144 @@ namespace DependencyInjector
             }
         }
 
-        
-        private void ArrangeRelations ( )
+
+        private void ResolveRelatives ( List <GenderRelative> leaves )
         {
-            var leaves = new List <IGenderTreeNode> ( );
+            var descendants = leaves;
 
-            for ( var i = 0;   i < _chains . Count;   i++ )
-            {
-                IGenderTreeNode possibleDescendant = null;
-                var beingProcessedNode  =  _chains [ i ] . _top;
-                SetUpPossibleRelationMember ( _chains [ i ] , possibleDescendant , beingProcessedNode );
-
-                if( possibleDescendant . _renderedOnRelation )
-                {
-                    continue;
-                }
-
-                leaves . Add ( possibleDescendant );
-                ConductRelationUntillRelativeIsRenderedOrAbsents ( leaves , possibleDescendant , beingProcessedNode );
-            }
-        }
-
-
-        private void SetUpPossibleRelationMember ( DependencyChain chainPresentsPossibleRelative , IGenderTreeNode possibleRelative , ParamNode entryInFirstParam )
-        {
-            if ( chainPresentsPossibleRelative . _isBunched )
-            {
-                possibleRelative = chainPresentsPossibleRelative . GetBunchYouAreBunchedIn ( entryInFirstParam , _nodeToChainStack , _chainStackToBunch );
-                entryInFirstParam = ( ( Bunch ) possibleRelative ) . _highest . _top;
-            }
-            else
-            {
-                possibleRelative = chainPresentsPossibleRelative;
-                entryInFirstParam = chainPresentsPossibleRelative . _top;
-            }
-        }
-
-
-        private void ConductRelationUntillRelativeIsRenderedOrAbsents ( List<IGenderTreeNode> leaves, IGenderTreeNode possibleDescendant, ParamNode nodeBetweenRelatives )
-        {
             while ( true )
             {
-                if ( leaves . Contains ( possibleDescendant ) )
+                var ancestors = new List<GenderRelative> ( );
+
+                for ( var i = 0;    i > descendants . Count;    i++ )
                 {
-                    leaves . Remove ( possibleDescendant );
+                    descendants [ i ] . Resolve ( );
+                    
+
+                    
+
+                    ancestors . Add ( descendants [ i ] . GetParent ( ) );
+                }
+
+                if( ancestors . Count < 1 )
+                {
                     break;
                 }
 
-                if ( possibleDescendant . _renderedOnRelation )
-                {
-                    break;
-                }
-
-                nodeBetweenRelatives = nodeBetweenRelatives . _parent;
-                var rootIsAchieved = ( nodeBetweenRelatives == null );
-
-                if ( rootIsAchieved )
-                {
-                    possibleDescendant . _renderedOnRelation = true;
-                    break;
-                }
-
-                SetUpAncestorIfItFound ( nodeBetweenRelatives , possibleDescendant );
+                descendants = ancestors;
             }
+
+
         }
 
+        
+        //private void ArrangeRelations ( )
+        //{
+        //    var leaves = new List <IGenderRelative> ( );
 
-        private void SetUpAncestorIfItFound ( ParamNode nodeBetweenRelatives ,  IGenderTreeNode possibleDescendant )
-        {
-            IGenderTreeNode ancestor = null;
+        //    for ( var i = 0;   i < _circuits . Count;   i++ )
+        //    {
+        //        IGenderRelative possibleDescendant = null;
+        //        var beingProcessedNode  =  _circuits [ i ] . _top;
+        //        FixRelative ( _circuits [ i ] , possibleDescendant , beingProcessedNode );
 
-            if ( _nodeToChainStack . ContainsKey ( nodeBetweenRelatives ) )
-            {
-                var nodeInAncestor = nodeBetweenRelatives;
-                var presentingAncestorChain = _nodeToChainStack [ nodeInAncestor ] [ 0 ];
-                var accomplishedDescendant = possibleDescendant;
-                SetUpPossibleRelationMember ( presentingAncestorChain , ancestor , nodeInAncestor );
-                ancestor . AddChild ( accomplishedDescendant );
-                accomplishedDescendant . SetParent ( ancestor );
-                accomplishedDescendant . _renderedOnRelation = true;
-                possibleDescendant = ancestor;
-            }
-            else
-            {
-                possibleDescendant . AddToWayToParent ( nodeBetweenRelatives );
-            }
-        }
+        //        if( possibleDescendant . _renderedOnRelation )
+        //        {
+        //            continue;
+        //        }
+
+        //        leaves . Add ( possibleDescendant );
+        //        ConductRelationUntillRelativeIsRenderedOrAbsents ( leaves , possibleDescendant , beingProcessedNode );
+        //    }
+        //}
+
+
+        //private void FixRelative ( DependencyCircuit circuitPresentsPossibleRelative , IGenderRelative possibleRelative , ParamNode entryInFirstParam )
+        //{
+        //    if ( circuitPresentsPossibleRelative . _isBunched )
+        //    {
+        //        possibleRelative = circuitPresentsPossibleRelative . GetBunchYouAreBunchedIn ( entryInFirstParam , _nodeToCircuits , _circuitsToBunch );
+        //        entryInFirstParam = ( ( Bunch ) possibleRelative ) . _highest . _top;
+
+        //        if ( ( ( Bunch ) possibleRelative ) . _linked )
+        //        {
+        //            possibleRelative = GetLinkedBunchesByBunch ( ( Bunch ) possibleRelative );
+        //            entryInFirstParam = ( ( LinkedBunches ) possibleRelative ) . _closestToAncestor . _highest . _top;
+        //        }
+        //    }
+        //    else
+        //    {
+        //        possibleRelative = circuitPresentsPossibleRelative;
+        //        entryInFirstParam = circuitPresentsPossibleRelative . _top;
+        //    }
+        //}
+
+
+        //private LinkedBunches GetLinkedBunchesByBunch ( Bunch possibleMember )
+        //{
+        //    LinkedBunches result = null;
+
+        //    for( var i = 0;    i < _linkedBunches . Count;    i++ )
+        //    {
+        //        if ( _linkedBunches [ i ] . ContainsBunch ( possibleMember ) )
+        //        {
+        //            result = _linkedBunches [ i ];
+        //        }
+        //    }
+
+        //    return result;
+        //}
+
+
+        //private void ConductRelationUntillRelativeIsRenderedOrAbsents ( List<IGenderRelative> leaves, IGenderRelative possibleDescendant, ParamNode nodeBetweenRelatives )
+        //{
+        //    while ( true )
+        //    {
+        //        if ( leaves . Contains ( possibleDescendant ) )
+        //        {
+        //            leaves . Remove ( possibleDescendant );
+        //            break;
+        //        }
+                
+        //        if ( possibleDescendant . _renderedOnRelation )
+        //        {
+        //            break;
+        //        }
+
+        //        nodeBetweenRelatives = nodeBetweenRelatives . _parent;
+        //        var rootIsAchieved = ( nodeBetweenRelatives == null );
+
+        //        if ( rootIsAchieved )
+        //        {
+        //            possibleDescendant . _renderedOnRelation = true;
+        //            break;
+        //        }
+
+        //        SetUpAncestorIfItFound ( nodeBetweenRelatives , possibleDescendant );
+        //    }
+        //}
+
+
+        //private void SetUpAncestorIfItFound ( ParamNode nodeBetweenRelatives ,  IGenderRelative possibleDescendant )
+        //{
+        //    IGenderRelative ancestor = null;
+
+        //    if ( _nodeToCircuits . ContainsKey ( nodeBetweenRelatives ) )
+        //    {
+        //        var nodeInAncestor = nodeBetweenRelatives;
+        //        var presentingAncestorCircuit = _nodeToCircuits [ nodeInAncestor ] [ 0 ];
+        //        var accomplishedDescendant = possibleDescendant;
+        //        FixRelative ( presentingAncestorCircuit , ancestor , nodeInAncestor );
+        //        ancestor . AddChild ( accomplishedDescendant );
+        //        accomplishedDescendant . SetParent ( ancestor );
+        //        accomplishedDescendant . _renderedOnRelation = true;
+        //        possibleDescendant = ancestor;
+        //    }
+        //    else
+        //    {
+        //        possibleDescendant . AddToWayToParent ( nodeBetweenRelatives );
+        //    }
+        //}
 
 
     }

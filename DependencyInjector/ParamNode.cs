@@ -6,36 +6,19 @@ using System . Reflection;
 
 namespace DependencyInjector
 {
-    //public static class LinkedListOfParamsExtention
-    //{
-    //    public static LinkedList<ParamNode> Clone ( this LinkedList<ParamNode> list )
-    //    {
-    //        var reciever = new ParamNode [ list . Count ];
 
-    //        list . CopyTo ( reciever , 0 );
 
-    //        var nodes = reciever . ToList ( );
-
-    //        return new LinkedList<ParamNode> ( nodes );
-    //    }
-
-    //}
-
-    public class ParamNode
+    class ParamNode
     {
-        //private static int idCounter;
-
-        //private int id;
-
-        private int _ordinalNumberInParentCtor { get; set; }
+        private int _ordinalNumberInParentCtor;
 
         private DependencyInjection _config;
 
-        private List<ParamNode> _children { get; set; }
+        private List<ParamNode> _children;
+
+        private NodeType _nodeType;
 
         public ParamNode _parent { get; private set; }
-
-        public NodeType _nodeType { get; private set; }
 
         public NestedObject _nestedObj { get; private set; }
 
@@ -60,37 +43,32 @@ namespace DependencyInjector
             _ordinalNumberInParentCtor = ordinalNumberInParentCtorParams;
             _parent = parent;
             _myLevelInTree = parent . _myLevelInTree + 1;
-
-            //this . id = idCounter;
-            //idCounter++;
-            // this . DefineNodeType ( paramType );
-
             _nodeType = nodeType;
             _isInitiolized = false;
         }
 
 
-        private DependencyChain CreateChain ( bool cycleFound , List<ParamNode> possibleChain )
-        {
-            DependencyChain result;
-            possibleChain . Reverse ( );
+        //private DependencyCircuit CreateChain ( bool cycleFound , List<ParamNode> possibleChain )
+        //{
+        //    DependencyCircuit result;
+        //    possibleChain . Reverse ( );
 
-            if ( cycleFound )
-            {
-                _nodeType = new DependencyCycleParticipant ( );
-                possibleChain . AccomplishForEach<ParamNode>
-                (
-                   ( item ) => { if ( item . _nodeType . _kind  !=  NodeKind . DependencyCycleParticipant ) { item . _nodeType = new DependencyCycleParticipant ( ); } }
-                );
+        //    if ( cycleFound )
+        //    {
+        //        _nodeType = new DependencyCycleParticipant ( );
+        //        possibleChain . AccomplishForEach<ParamNode>
+        //        (
+        //           ( item ) => { if ( item . _nodeType . _kind  !=  NodeKind . DependencyCycleParticipant ) { item . _nodeType = new DependencyCycleParticipant ( ); } }
+        //        );
 
-                result = new DependencyChain ( possibleChain );
-            }
-            else
-            {
-                result = DependencyChain . CreateEmptyChain ( );
-            }
-            return result;
-        }
+        //        result = new DependencyCircuit ( possibleChain );
+        //    }
+        //    else
+        //    {
+        //        result = DependencyCircuit . CreateEmptyChain ( );
+        //    }
+        //    return result;
+        //}
 
 
         //public void FindCyclicDependency ( List<DependencyChain> dependencyChains )
@@ -146,11 +124,11 @@ namespace DependencyInjector
         /// 
         /// </summary>
         /// <returns></returns>
-        public DependencyChain GetDependencyChainFromAncestors ( )
+        public List <ParamNode> GetSequenceForDependencyCircuit ( )
         {
-            var cycleFound = false;
-            var possibleChain = new List<ParamNode> ( );
-            possibleChain . Add ( this );
+            var possibleCircuit = new List<ParamNode> ( );
+            var accomplishedCircuit = new List<ParamNode> ( );
+            possibleCircuit . Add ( this );
             ParamNode probableCoincidentAncestor = _parent;
 
             while ( true )
@@ -160,24 +138,24 @@ namespace DependencyInjector
                     break;
                 }
 
-                possibleChain . Add ( probableCoincidentAncestor );
+                possibleCircuit . Add ( probableCoincidentAncestor );
 
-                if ( !probableCoincidentAncestor . Equals ( this ) )
+                if ( ! probableCoincidentAncestor . TypeNameEquals ( this ) )
                 {
                     probableCoincidentAncestor = probableCoincidentAncestor . _parent;
                     continue;
                 }
                 else
                 {
-                    cycleFound = true;
+                    accomplishedCircuit = possibleCircuit;
                     break;
                 }
             }
-            return CreateChain ( cycleFound , possibleChain );
+            return accomplishedCircuit;
         }
 
 
-        public override bool Equals ( object obj )
+        public bool TypeNameEquals ( object obj )
         {
             bool equals = false;
 
@@ -329,7 +307,7 @@ namespace DependencyInjector
 
         public List<ParamNode> DefineChildren ( )
         {
-            List<DependencyChain> chains = new List<DependencyChain> ( );
+            List<DependencyCircuit> chains = new List<DependencyCircuit> ( );
             var childTypes = _nestedObj . GetCtorParamTypes ( );
             var result = _nodeType . DefineChildren ( this , childTypes );
             return result;
@@ -338,7 +316,26 @@ namespace DependencyInjector
 
         public void ChangeState ( NodeKind kind )
         {
-            _nodeType = new Fork (" );
+            switch ( kind ) 
+            {
+                case    NodeKind . Fork :
+                {
+                    _nodeType = new Fork ( );
+                    break;
+                }
+
+                case NodeKind . TopOfLowestInBunch :
+                {
+                    _nodeType = new TopOfLowestInBunch ( );
+                    break;
+                }
+
+                case NodeKind . DependencyCycleParticipant :
+                {
+                    _nodeType = new DependencyCycleParticipant ( );
+                    break;
+                }
+            }
         }
 
 
@@ -359,6 +356,12 @@ namespace DependencyInjector
             }
 
             return ancestor;
+        }
+
+
+        public NodeKind GetNodeKind ()
+        {
+            return _nodeType . _kind;
         }
 
 

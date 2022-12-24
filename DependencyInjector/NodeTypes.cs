@@ -6,51 +6,22 @@ using System . Reflection;
 
 namespace DependencyInjector
 {
-    public abstract class NodeType
+    abstract class NodeType
     {
         public NodeKind _kind;
 
         public abstract void InitializeNested ( ParamNode becomingInitilized );
-
-        // public abstract List<ParamNode> DefineChildren ( ParamNode becomingParent ,  out List<DependencyChain> dependencyChains );
 
         public abstract List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childParamTypes );
     }
 
 
 
-    public class OrdinaryNode : NodeType
+    class OrdinaryNode : NodeType
     {
         public NodeKind _kind = NodeKind . Ordinary;
-        private static int _idCounter;
-        private int _id;
 
-
-        public OrdinaryNode ( )
-        {
-            _id = _idCounter;
-            _idCounter++;
-        }
-
-
-        public override bool Equals ( object obj )
-        {
-            bool equals = false;
-            OrdinaryNode beingCompared = null;
-
-            if ( obj is OrdinaryNode )
-            {
-                beingCompared = ( OrdinaryNode ) obj;
-
-                if ( beingCompared . _id == _id )
-                {
-                    equals = true;
-                }
-            }
-            return equals;
-        }
-
-
+        
         public override void InitializeNested ( ParamNode becomingInitilized )
         {
             becomingInitilized . InitializeOrdinary ( );
@@ -90,38 +61,9 @@ namespace DependencyInjector
 
 
 
-    public class SimpleLeaf : NodeType
+    class SimpleLeaf : NodeType
     {
         public NodeKind _kind = NodeKind . SimpleLeaf;
-        private static int _idCounter;
-        private int _id;
-
-
-        public SimpleLeaf ( )
-        {
-            _id = _idCounter;
-            _idCounter++;
-        }
-
-
-        public override bool Equals ( object obj )
-        {
-            bool equals = false;
-
-            SimpleLeaf beingCompared = null;
-
-            if ( obj is SimpleLeaf )
-            {
-                beingCompared = ( SimpleLeaf ) obj;
-
-                if ( beingCompared . _id == _id )
-                {
-                    equals = true;
-                }
-            }
-
-            return equals;
-        }
 
 
         public override void InitializeNested ( ParamNode becomingInitilized )
@@ -138,37 +80,11 @@ namespace DependencyInjector
 
 
 
-    public class DependencyCycleParticipant : NodeType
+    class DependencyCycleParticipant : NodeType
     {
         public NodeKind _kind = NodeKind . DependencyCycleParticipant;
-        private static int _idCounter;
-        private int _id;
+
         private bool _timeToGetInitialized = false;
-
-
-        public DependencyCycleParticipant ( )
-        {
-            _id = _idCounter;
-            _idCounter++;
-        }
-
-
-        public override bool Equals ( object obj )
-        {
-            bool equals = false;
-            DependencyCycleParticipant beingCompared = null;
-
-            if ( obj is DependencyCycleParticipant )
-            {
-                beingCompared = ( DependencyCycleParticipant ) obj;
-
-                if ( beingCompared . _id == _id )
-                {
-                    equals = true;
-                }
-            }
-            return equals;
-        }
 
 
         public override void InitializeNested ( ParamNode becomingInitilized )
@@ -193,33 +109,12 @@ namespace DependencyInjector
 
 
 
-    public class Fork : DependencyCycleParticipant
+    class Fork : DependencyCycleParticipant
     {
         public NodeKind _kind = NodeKind . Fork;
-        
-        private static int _idCounter;
-        
-        private int _id;
 
         private bool _timeToGetInitialized = false;
 
-
-        public override bool Equals ( object obj )
-        {
-            bool equals = false;
-            Fork beingCompared = null;
-
-            if ( obj is Fork )
-            {
-                beingCompared = ( Fork ) obj;
-
-                if ( beingCompared . _id == _id )
-                {
-                    equals = true;
-                }
-            }
-            return equals;
-        }
 
 
         //public override void InitializeNested ( ParamNode becomingInitilized )
@@ -244,7 +139,7 @@ namespace DependencyInjector
 
 
 
-    public class TopOfLowestInBunch : DependencyCycleParticipant
+    class TopOfLowestInBunch : DependencyCycleParticipant
     {
         public override List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childParamTypes )
         {
@@ -259,7 +154,7 @@ namespace DependencyInjector
 
 
 
-    public enum NodeKind
+    enum NodeKind
     {
         Ordinary,
 

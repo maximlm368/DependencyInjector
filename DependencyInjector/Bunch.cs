@@ -4,95 +4,57 @@ using System . Text;
 
 namespace DependencyInjector
 {
-    public class Bunch : IGenderTreeNode
+    class Bunch : GenderRelative
     {
-        private static string _nullInsideChain = "param 'chains' must contain only not null items";
+        private static string _nullInsideCircuit = "param 'chains' must contain only not null items";
 
-        private static string _shortChain = "param 'chains' must contain more than one chain";
+        private static string _shortCircuit = "param 'chains' must contain more than one chain";
 
-        private int _id;
+        private List<DependencyCircuit> _bunchedCircuits;
 
-        private List<DependencyChain> _bunchedChains;
+        private DependencyCircuit _lowest;
 
-        public DependencyChain _highest { get; private set; }
-
-        private DependencyChain _lowest;
-
-        private ParamNode _beingProcessed;
+        private ParamNode _resolvingScratch;
 
         private bool _complited = false;
+        
+        public DependencyCircuit _highest { get; private set; }
 
-        public bool _renderedOnRelation { get; set; }
+        public ParamNode _highestNode { get; private set; }
+
+        public override bool _renderedOnRelation { get; set; }
 
         public bool _linked { get; set; }
 
 
-        public Bunch ( List<DependencyChain> chains )
+        public Bunch ( List<DependencyCircuit> circuits )
         {
-            if ( chains . Count < 2 )
+            if ( circuits . Count < 2 )
             {
-                throw new ArgumentException ( _shortChain );
+                throw new ArgumentException ( _shortCircuit );
             }
 
-            for ( var i = 0;   i < chains . Count;   i++ )
+            for ( var i = 0;   i < circuits . Count;   i++ )
             {
-                if ( chains [ i ] == null )
+                if ( circuits [ i ] == null )
                 {
-                    throw new ArgumentException ( _nullInsideChain );
+                    throw new ArgumentException ( _nullInsideCircuit );
                 }
 
-                chains [ i ] . _isBunched = true;
+                circuits [ i ] . _isBunched = true;
             }
 
-            _bunchedChains = new List<DependencyChain> ( );
-            _bunchedChains . AddRange ( chains );
+            _bunchedCircuits = new List<DependencyCircuit> ( );
+            _bunchedCircuits . AddRange ( circuits );
+            SetUpHighest ( );
+            SetUpLowest ( );
+            SetUpScratchOfResolving ( );
         }
 
 
-        public List <DependencyChain> GetBunchedChains ()
+        public List <DependencyCircuit> GetBunchedCircuits ()
         {
-            return _bunchedChains . Clone ( );
-        }
-
-
-        public void ResolveDependencies ( )
-        {
-            if( ! _complited )
-            {
-                SetUpHighest ( );
-                SetUpLowest ( );
-                SetUpScratchOfResolving ( );
-
-                while ( true )
-                {
-                    try
-                    {
-                        _beingProcessed . InitializeNestedObject ( );
-                    }
-                    catch ( NotInitializedChildException )
-                    {
-                        break;
-                    }
-
-                    var chainsWithThisTop = FindOwnersOfTop ( _beingProcessed );
-
-                    for ( var j = 0;    j > chainsWithThisTop . Count;    j++ )
-                    {
-                        chainsWithThisTop [ j ] . InitializeBottomByTop ( );
-                    }
-
-                    var bunchIsComplited = ( object . ReferenceEquals ( _highest . _top , _beingProcessed ) ) ||
-                                       ( _beingProcessed . _parent . _nodeType . _kind == NodeKind . Fork );
-
-                    if ( bunchIsComplited )
-                    {
-                        _complited = true;
-                        break;
-                    }
-
-                    _beingProcessed = _beingProcessed . _parent;
-                }
-            }
+            return _bunchedCircuits . Clone ( );
         }
 
 
@@ -100,17 +62,19 @@ namespace DependencyInjector
         {
             if( _highest == null )
             {
-                _highest = _bunchedChains [ 0 ];
+                _highest = _bunchedCircuits [ 0 ];
 
-                for ( var i = 1; i < _bunchedChains . Count; i++ )
+                for ( var i = 1; i < _bunchedCircuits . Count; i++ )
                 {
-                    var heigherThanPrivious = ( _bunchedChains [ i ] . _top . _myLevelInTree ) > ( _bunchedChains [ i - 1 ] . _top . _myLevelInTree );
+                    var heigherThanPrivious = ( _bunchedCircuits [ i ] . _top . _myLevelInTree )   >   ( _bunchedCircuits [ i - 1 ] . _top . _myLevelInTree );
 
                     if ( heigherThanPrivious )
                     {
-                        _highest = _bunchedChains [ i ];
+                        _highest = _bunchedCircuits [ i ];
                     }
                 }
+
+                _highestNode = _highest . _top;
             }
         }
 
@@ -119,15 +83,15 @@ namespace DependencyInjector
         {
             if( _lowest == null )
             {
-                _lowest = _bunchedChains [ 0 ];
+                _lowest = _bunchedCircuits [ 0 ];
 
-                for ( var i = 1; i < _bunchedChains . Count; i++ )
+                for ( var i = 1; i < _bunchedCircuits . Count; i++ )
                 {
-                    var lowerThanPrivious = ( _bunchedChains [ i ] . _top . _myLevelInTree ) < ( _bunchedChains [ i - 1 ] . _top . _myLevelInTree );
+                    var lowerThanPrivious = ( _bunchedCircuits [ i ] . _top . _myLevelInTree )   <   ( _bunchedCircuits [ i - 1 ] . _top . _myLevelInTree );
 
                     if ( lowerThanPrivious )
                     {
-                        _lowest = _bunchedChains [ i ];
+                        _lowest = _bunchedCircuits [ i ];
                     }
                 }
             }
@@ -136,83 +100,81 @@ namespace DependencyInjector
 
         private void SetUpScratchOfResolving ()
         {
-            if( _beingProcessed == null )
+            if( _resolvingScratch == null )
             {
-                _beingProcessed = _lowest . _top;
-                _beingProcessed . ChangeState ( NodeKind . TopOfLowestInBunch );
+                _resolvingScratch = _lowest . _top;
+                _resolvingScratch . ChangeState ( NodeKind . TopOfLowestInBunch );
             }           
         }
 
 
-        private List<DependencyChain> FindOwnersOfTop ( ParamNode possibleTop )
+        public override void Resolve ( )
         {
-            var ownerOfTop = new List<DependencyChain> ( );
+            ResolveInterCircuitDependencies ( );
 
-            for ( var i = 0;    i > _bunchedChains . Count;    i++ )
+            for ( var j = 0;    j > _bunchedCircuits . Count;    j++ )
             {
-                if ( _bunchedChains [ i ] . HasThisTop ( possibleTop ) )
+                var circuit = _bunchedCircuits [ j ];
+                circuit . Resolve ( );
+            }
+
+            ResolveWayToParent ( );
+        }
+
+
+        private void ResolveInterCircuitDependencies ( )
+        {
+            if ( !_complited )
+            {
+                var beingProcessed = _resolvingScratch;
+
+                while ( true )
                 {
-                    ownerOfTop . Add ( _bunchedChains [ i ] );
+                    try
+                    {
+                        beingProcessed . InitializeNestedObject ( );
+                    }
+                    catch ( NotInitializedChildException )
+                    {
+                        break;
+                    }
+
+                    var circuitsWithThisTop = FindOwnersOfTop ( beingProcessed );
+
+                    for ( var j = 0;    j > circuitsWithThisTop . Count;    j++ )
+                    {
+                        circuitsWithThisTop [ j ] . InitializeBottomByTop ( );
+                    }
+
+                    var bunchIsResolved = beingProcessed . Equals ( _highest . _top )    ||    ( beingProcessed . _parent . _nodeType . _kind == NodeKind . Fork );
+
+                    if ( bunchIsResolved )
+                    {
+                        _complited = true;
+                        break;
+                    }
+
+                    beingProcessed = beingProcessed . _parent;
+                }
+            }
+        }
+
+
+        private List<DependencyCircuit> FindOwnersOfTop ( ParamNode possibleTop )
+        {
+            var ownerOfTop = new List<DependencyCircuit> ( );
+
+            for ( var i = 0;    i > _bunchedCircuits . Count;    i++ )
+            {
+                if ( _bunchedCircuits [ i ] . HasThisTop ( possibleTop ) )
+                {
+                    ownerOfTop . Add ( _bunchedCircuits [ i ] );
                 }
             }
 
             return ownerOfTop;
         }
-
-
-        public void AddChild ( IGenderTreeNode child )
-        {
-            throw new NotImplementedException ( );
-        }
-
-
-        public void SetParent ( IGenderTreeNode parent )
-        {
-            throw new NotImplementedException ( );
-        }
-
-
-        public void AddToWayToParent ( ParamNode node )
-        {
-            throw new NotImplementedException ( );
-        }
-
     }
 
-
-
-    public class LinkedBunches : IGenderTreeNode
-    {
-        private List <Bunch> bunches { get; set; }
-
-        public bool _renderedOnRelation { get; set; }
-
-
-        public LinkedBunches( List<Bunch> linkedBunches )
-        {
-        
-        }
-
-
-        public void AddChild ( IGenderTreeNode child )
-        {
-            throw new NotImplementedException ( );
-        }
-
-
-        public void AddToWayToParent ( ParamNode node )
-        {
-            throw new NotImplementedException ( );
-        }
-
-
-        public void SetParent ( IGenderTreeNode parent )
-        {
-            throw new NotImplementedException ( );
-        }
-
-
-        
-    }
 
 }

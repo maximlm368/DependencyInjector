@@ -7,7 +7,7 @@ using System . Reflection;
 
 namespace DependencyInjector
 {
-    public class NestedObject
+    class NestedObject
     {
         public bool _IsSimple { get; private set; }
 
