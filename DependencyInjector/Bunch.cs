@@ -1,22 +1,21 @@
 ﻿using System;
 using System . Collections . Generic;
+using System . Reflection;
 using System . Text;
 
 namespace DependencyInjector
 {
-    class Bunch : GenderRelative
+    class Bunch : CompoundRelative
     {
-        private static string _nullInsideCircuit = "param 'chains' must contain only not null items";
-
-        private static string _shortCircuit = "param 'chains' must contain more than one chain";
-
         private List<DependencyCircuit> _bunchedCircuits;
 
         private DependencyCircuit _lowest;
 
-        private ParamNode _resolvingScratch;
+        private ParamNode _scratchOfResolving;
 
-        private bool _complited = false;
+        private bool _isResolved = false;
+
+        private bool _isPrepared = false;
         
         public DependencyCircuit _highest { get; private set; }
 
@@ -29,16 +28,23 @@ namespace DependencyInjector
 
         public Bunch ( List<DependencyCircuit> circuits )
         {
+            var method = MethodInfo . GetCurrentMethod ( );
+            var currentTypeName = method . ReflectedType . Name;
+            var currentMethodName = method . Name;
+            var dot = ".";
+            string nullInsideCircuit = currentTypeName + dot + currentMethodName + "param must contain only not null items";
+            string shortCircuit = currentTypeName + dot + currentMethodName + "param must contain more than one circuit";
+
             if ( circuits . Count < 2 )
             {
-                throw new ArgumentException ( _shortCircuit );
+                throw new ArgumentException ( shortCircuit );
             }
 
             for ( var i = 0;   i < circuits . Count;   i++ )
             {
                 if ( circuits [ i ] == null )
                 {
-                    throw new ArgumentException ( _nullInsideCircuit );
+                    throw new ArgumentException ( nullInsideCircuit );
                 }
 
                 circuits [ i ] . _isBunched = true;
@@ -87,9 +93,9 @@ namespace DependencyInjector
 
                 for ( var i = 1; i < _bunchedCircuits . Count; i++ )
                 {
-                    var lowerThanPrivious = ( _bunchedCircuits [ i ] . _top . _myLevelInTree )   <   ( _bunchedCircuits [ i - 1 ] . _top . _myLevelInTree );
+                    var lowerThanPrevious = ( _bunchedCircuits [ i ] . _top . _myLevelInTree )   <   ( _bunchedCircuits [ i - 1 ] . _top . _myLevelInTree );
 
-                    if ( lowerThanPrivious )
+                    if ( lowerThanPrevious )
                     {
                         _lowest = _bunchedCircuits [ i ];
                     }
@@ -100,61 +106,58 @@ namespace DependencyInjector
 
         private void SetUpScratchOfResolving ()
         {
-            if( _resolvingScratch == null )
+            if( _scratchOfResolving == null )
             {
-                _resolvingScratch = _lowest . _top;
-                _resolvingScratch . ChangeState ( NodeKind . TopOfLowestInBunch );
+                _scratchOfResolving = _lowest . _top;
+                _scratchOfResolving . ChangeState ( NodeKind . TopOfCircuit );
             }           
         }
 
 
         public override void Resolve ( )
         {
-            ResolveInterCircuitDependencies ( );
-
-            for ( var j = 0;    j > _bunchedCircuits . Count;    j++ )
+            if( ! _isResolved )
             {
-                var circuit = _bunchedCircuits [ j ];
-                circuit . Resolve ( );
-            }
+                Prepare ( );
 
-            ResolveWayToParent ( );
+                for ( var j = 0;     j > _bunchedCircuits . Count;     j++ )
+                {
+                    var circuit = _bunchedCircuits [ j ];
+                    circuit . Resolve ( );
+                }
+
+                _isResolved = true;
+            }
         }
 
 
-        private void ResolveInterCircuitDependencies ( )
+        public void Prepare ( )
         {
-            if ( !_complited )
+            if ( ! _isPrepared )
             {
-                var beingProcessed = _resolvingScratch;
-
-                while ( true )
+                var beingProcessedNode = _scratchOfResolving;
+                var goingUpContinues = true;
+         
+                while ( goingUpContinues )
                 {
-                    try
-                    {
-                        beingProcessed . InitializeNestedObject ( );
-                    }
-                    catch ( NotInitializedChildException )
-                    {
-                        break;
-                    }
-
-                    var circuitsWithThisTop = FindOwnersOfTop ( beingProcessed );
+                    var circuitsWithThisTop = FindOwnersOfTop ( beingProcessedNode );
 
                     for ( var j = 0;    j > circuitsWithThisTop . Count;    j++ )
                     {
-                        circuitsWithThisTop [ j ] . InitializeBottomByTop ( );
+                        circuitsWithThisTop [ j ] . Prepare ( );
                     }
 
-                    var bunchIsResolved = beingProcessed . Equals ( _highest . _top )    ||    ( beingProcessed . _parent . _nodeType . _kind == NodeKind . Fork );
+                    beingProcessedNode . InitializeNestedObject ( );
+                    var preparationEndedUp = beingProcessedNode . Equals ( _highest . _top );
+                    var linkedBunchWillContinuePreparation = beingProcessedNode . _parent . _isFork;
 
-                    if ( bunchIsResolved )
+                    if ( preparationEndedUp   ||   linkedBunchWillContinuePreparation )
                     {
-                        _complited = true;
+                        _isPrepared = true;
                         break;
                     }
 
-                    beingProcessed = beingProcessed . _parent;
+                    beingProcessedNode = beingProcessedNode . _parent;
                 }
             }
         }

@@ -10,21 +10,24 @@ namespace DependencyInjector
     {
         public NodeKind _kind;
 
-        public abstract void InitializeNested ( ParamNode becomingInitilized );
+        public abstract void InitializeNested ( ParamNode becomingInitialized );
 
-        public abstract List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childParamTypes );
+        public virtual List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childParamTypes )
+        {
+            return new List<ParamNode> ( );
+        }
     }
 
 
 
     class OrdinaryNode : NodeType
     {
-        public NodeKind _kind = NodeKind . Ordinary;
+        public new NodeKind _kind = NodeKind . Ordinary;
 
         
-        public override void InitializeNested ( ParamNode becomingInitilized )
+        public override void InitializeNested ( ParamNode becomingInitialized )
         {
-            becomingInitilized . InitializeOrdinary ( );
+            becomingInitialized . InitializeOrdinary ( );
         }
 
 
@@ -32,12 +35,13 @@ namespace DependencyInjector
         {
             var resultChildren = new List<ParamNode> ( );
 
-            for ( var counter = 0;   counter < childTypes . Count;   counter++ )
+            for ( var counter = 0;     counter < childTypes . Count;     counter++ )
             {
                 var nodeType = DefineNodeType ( childTypes [ counter ] );
                 var child = new ParamNode ( childTypes [ counter ] , counter , becomingParent , nodeType );
                 resultChildren . Add ( child );
             }
+
             return resultChildren;
         }
 
@@ -55,6 +59,7 @@ namespace DependencyInjector
             {
                 result = new OrdinaryNode ( );
             }
+
             return result;
         }
     }
@@ -63,18 +68,12 @@ namespace DependencyInjector
 
     class SimpleLeaf : NodeType
     {
-        public NodeKind _kind = NodeKind . SimpleLeaf;
+        public new NodeKind _kind = NodeKind . SimpleLeaf;
 
 
-        public override void InitializeNested ( ParamNode becomingInitilized )
+        public override void InitializeNested ( ParamNode becomingInitialized )
         {
-            becomingInitilized . InitializeSimple ( );
-        }
-
-
-        public override List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childTypes )
-        {
-            return new List<ParamNode> ( );
+            becomingInitialized . InitializeSimple ( );
         }
     }
 
@@ -82,73 +81,57 @@ namespace DependencyInjector
 
     class DependencyCycleParticipant : NodeType
     {
-        public NodeKind _kind = NodeKind . DependencyCycleParticipant;
+        public new NodeKind _kind = NodeKind . DependencyCycleParticipant;
 
-        private bool _timeToGetInitialized = false;
+        private bool _ordinaryChildrenMustBeInitializedAlready = false;
 
 
-        public override void InitializeNested ( ParamNode becomingInitilized )
+        public override void InitializeNested ( ParamNode becomingInitialized )
         {
-            if ( _timeToGetInitialized )
+            Performer performer = becomingInitialized . InitializeOrdinary;
+            Initialize ( becomingInitialized , performer );
+        }
+
+
+        protected void Initialize ( ParamNode becomingInitialized , Performer performer)
+        {
+            if ( _ordinaryChildrenMustBeInitializedAlready )
             {
-                becomingInitilized . InitializeOrdinary ( );
+                performer ( );
             }
             else
             {
-                _timeToGetInitialized = true;
+                _ordinaryChildrenMustBeInitializedAlready = true;
                 return;
             }
         }
+    }
 
 
-        public override List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childParamTypes )
+
+    class TopOfCircuit : DependencyCycleParticipant
+    {
+        public new NodeKind _kind = NodeKind . TopOfCircuit;
+
+
+        public override void InitializeNested ( ParamNode becomingInitialized )
         {
-            return new List<ParamNode> ( );
+            Performer performer = becomingInitialized . InitializePassingOverAbsentParams;
+            base. Initialize ( becomingInitialized , performer );
         }
     }
 
 
 
-    class Fork : DependencyCycleParticipant
+    class BottomOfCircuit : DependencyCycleParticipant
     {
-        public NodeKind _kind = NodeKind . Fork;
-
-        private bool _timeToGetInitialized = false;
+        public new NodeKind _kind = NodeKind . BottomOfCircuit;
 
 
-
-        //public override void InitializeNested ( ParamNode becomingInitilized )
-        //{
-        //    if( _timeToGetInitialized )
-        //    {
-        //        becomingInitilized . InitializeOrdinary ( );
-        //    }
-        //    else
-        //    {
-        //        _timeToGetInitialized = true;
-        //        return;
-        //    }
-        //}
-
-
-        //public override List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childParamTypes )
-        //{
-        //    return new List<ParamNode> ( );
-        //}
-    }
-
-
-
-    class TopOfLowestInBunch : DependencyCycleParticipant
-    {
-        public override List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childParamTypes )
+        public override void InitializeNested ( ParamNode becomingInitialized )
         {
-            throw new NotImplementedException ( );
-        }
-
-        public override void InitializeNested ( ParamNode becomingInitilized )
-        {
-            throw new NotImplementedException ( );
+            Performer performer = becomingInitialized . InitializeByTemplate;
+            base . Initialize ( becomingInitialized , performer );
         }
     }
 
@@ -162,8 +145,13 @@ namespace DependencyInjector
 
         SimpleLeaf,
 
-        Fork,
+        TopOfCircuit,
 
-        TopOfLowestInBunch
+        BottomOfCircuit
     }
+
+
+
+    delegate void Performer ( );
+
 }

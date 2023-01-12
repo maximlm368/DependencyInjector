@@ -1,15 +1,23 @@
-﻿using System;
+﻿#define DEBUG
+using System;
 using System . Collections . Generic;
 using System . Linq;
 using System . Text;
 using System . Reflection;
+using System . Diagnostics;
 
 
 namespace DependencyInjector
 {
     class NestedObject
     {
-        public bool _IsSimple { get; private set; }
+        private ResolverByConfigFile _abstractionResolver;
+
+        private int _nestingNodeOrdinalNumberInTree;
+
+        private ConstructorInfo _ctor;
+
+        //public bool _IsSimple { get; private set; }
 
         public Type _typeOfObject { get; private set; }
 
@@ -17,7 +25,7 @@ namespace DependencyInjector
         {
             get
             {
-                if ( _objectItself != null )
+                if ( _isInitialized )
                 {
                     return _objectItself;
                 }
@@ -25,113 +33,155 @@ namespace DependencyInjector
                 throw new Exception ( ");
             }
 
-            private set 
+            private set
             {
                 _objectItself = value;
             }
         }
 
-        public bool _isInitiolized { get; private set; }
+        public bool _isInitialized { get; private set; }
 
 
-
-
-        public NestedObject ( Type nestedType )
+        public NestedObject ( Type nestedType,  int nestingNodeOrdinalNumberInTree )
         {
-            _typeOfObject = nestedType;
-            SetSimplenessIfItIs ( );
-            _isInitiolized = false;
-            SetInterfaceImplimentation ( );
+            _typeOfObject = nestedType ?? throw new ArgumentNullException ( "NestedObject.ctor must recieve not null 'nestedType' argument" );
+            _nestingNodeOrdinalNumberInTree = nestingNodeOrdinalNumberInTree;
+            _isInitialized = false;
+            _abstractionResolver = new ResolverByConfigFile ( );
+            SetAbstractionImplimentation ( );
+            //SetSimplenessIfItIs ( );
+            MakeGenericTypeViaConfig ( );
         }
 
 
+        private void MakeGenericTypeViaConfig ( )
+        {
+            if ( _typeOfObject . IsGenericType     &&     _typeOfObject . IsGenericTypeDefinition )
+            {
+                var genericArgs = _typeOfObject . GetGenericArguments ( ) . ToList ( );
+                var genericArgNames = genericArgs . GetListOfItemPiece ( ( arg ) => { return arg . Name; } );
+                var valuesForGenericParams = _abstractionResolver . GetValuesOfGenericParams ( _typeOfObject );
+                var types = valuesForGenericParams . GetValuesSortedAccordingListOfKeys<string , Type> ( genericArgNames );
+                _typeOfObject = _typeOfObject . MakeGenericType ( types . ToArray ( ) );
+            }
+        }
 
 
-        //public NestedParamObject ( Type nestedType , object nestedObject )
+        //private void SetSimplenessIfItIs ( )
         //{
-        //    this . paramObjectType = nestedType;
-
-        //    if ( nestedObject != null )
+        //    if ( _typeOfObject . IsPrimitive    ||    ( _typeOfObject . FullName == "System.String" ) )
         //    {
-        //        this . paramObject = nestedObject;
+        //        _IsSimple = true;
         //    }
-
-        //    SetSimplenessIfItIs ( );
         //}
 
 
-
-        private void SetSimplenessIfItIs ( )
+        private void SetAbstractionImplimentation ( )
         {
-            if ( _typeOfObject . IsPrimitive || ( _typeOfObject . FullName == "System.String" ) )
+            if ( _typeOfObject . IsInterface || _typeOfObject . IsAbstract )
             {
-                _IsSimple = true;
+                _typeOfObject = Type . GetType ( _abstractionResolver . GetImplimentationNameByAbstraction ( _typeOfObject . FullName ) );
             }
         }
 
 
-
-        private void SetInterfaceImplimentation ( DependencyInjection config )
+        #region Initialize
+        
+        public void InitializeYourSelf ( object templateForSubstitution )
         {
-            if ( _typeOfObject . IsInterface )
-            {
-                _typeOfObject = Type . GetType ( config . GetCtorNameByInterface ( _typeOfObject . FullName ) );
-            }
+            _objectItself = templateForSubstitution ?? throw new Exception
+            _isInitialized = true;
         }
 
 
-
-        public void InitializeYourSelf ( object ctorParam )
+        public void InitializeYourSelf ( Type parentType , int ordinalNumberAmongCtorParams )
         {
-            _objectItself = ctorParam;
-            _isInitiolized = true;
+            _objectItself = _abstractionResolver . GetValueOfSimpleParam ( parentType , ordinalNumberAmongCtorParams , _typeOfObject );
+            _isInitialized = true;
         }
-
 
 
         public void InitializeYourSelf ( object [ ] ctorParams )
         {
-            _objectItself = Activator . CreateInstance ( _typeOfObject , ctorParams );
-            _isInitiolized = true;
+            GetCtor ( );
+            _objectItself = _ctor . Invoke ( ctorParams );
+            _isInitialized = true;
         }
 
 
-        private List<ParameterInfo> GetCtorParamInfos ( )
+        public void InitializeYourSelfWithoutSomeParams ( object [ ] ctorParams , List <Type> without )
         {
-            ParameterInfo [ ] paramInfos;
-
-            var ctors = _typeOfObject . GetConstructors ( );
-
-            if ( ctors . Length > 0 )
+            try
             {
-                paramInfos = ctors [ 0 ] . GetParameters ( );
+                _objectItself = Activator . CreateInstance ( _typeOfObject , ctorParams );
+            }
+            catch ( MissingMethodException )
+            {
+              #if DEBUG
+                Debug . WriteLine ( "" );
+              #endif
+               
+                throw;
             }
 
-
-
-            return paramInfos . ToList ( );
+            _isInitialized = true;
         }
 
+        # endregion Initialize
 
 
         public List<Type> GetCtorParamTypes ( )
         {
             var result = new List<Type> ( );
-
             var paramInfos = GetCtorParamInfos ( );
-
-            object [ ] paramObjects = new object [ paramInfos . Count ];
-
-            for ( var paramCounter = 0; paramCounter < paramInfos . Count; paramCounter++ )
+            
+            if( paramInfos == null )
             {
-                Type paramType = paramInfos [ paramCounter ] . ParameterType;
+                return result;
+            }
 
+            for ( var counter = 0;     counter < paramInfos . Length;     counter++ )
+            {
+                Type paramType = paramInfos [ counter ] . ParameterType;
                 result . Add ( paramType );
             }
 
             return result;
         }
 
+
+        private ParameterInfo [ ] GetCtorParamInfos ( )
+        {
+            ParameterInfo [ ] paramInfos = null;
+            GetCtor ( );
+            paramInfos = _ctor . GetParameters ( );
+            return paramInfos;
+        }
+
+
+        private void GetCtor ()
+        {
+            if ( _ctor == null )
+            {
+                var ctors = _typeOfObject . GetConstructors ( );
+
+                if ( ctors . Length < 1 )
+                {
+                    throw new Exception ( _typeOfObject . FullName + " does not have available public ctor" );
+                }
+
+                var ctorNumber = _abstractionResolver . GetCtorOrdinalNumber ( _typeOfObject , _nestingNodeOrdinalNumberInTree );
+                
+                try
+                {
+                    _ctor = ctors [ ctorNumber ];
+                }
+                catch( ArgumentOutOfRangeException )
+                {
+                    throw new Exception ( _typeOfObject . FullName + " does not have ctor with number " + ctorNumber + " that is gotten from config" );
+                }
+            }
+        }
 
 
         public string GetObjectTypeName ( )

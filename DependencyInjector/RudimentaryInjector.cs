@@ -22,16 +22,6 @@ namespace DependencyInjector
             var jsonConfigSource1 = new JsonConfigurationProvider ( TestStreamHelpers . ArbitraryFilePath );
             jsonConfigSource1 . Load ( TestStreamHelpers . StringToStream ( json1 ) );
             
-
-            var builder = new ConfigurationBuilder ( );
-            builder . AddJsonFile ( "" );
-            var appConfig = builder . Build ( );
-            appConfig.
-
-
-
-
-
             var dependencies = ( InterfaceImplimentations ) config . GetSection ( "Interface_Implimentations" );
 
             //dependencies = ( Interface_Implimentations ) ConfigurationManager . GetSection ( "Interface_Implimentations" );
@@ -388,7 +378,7 @@ namespace DependencyInjector
 
             for ( var i = 0; i < parametrs . Count; i++ )
             {
-                var ctorName = parametrs [ i ] . Implimentation . RidOfSeparator ( '-' );
+                var ctorName = parametrs [ i ] . Implimentation . GetPartBeforeSeparator ( '-' );
 
                 var ctorsCoincide = ( ctorName == ctorFullName );
 

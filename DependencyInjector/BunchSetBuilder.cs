@@ -12,9 +12,9 @@ namespace DependencyInjector
         {
             public int _beingProcessedNodeNumber = 0;
 
-            public List<DependencyCircuit> _relevantStack = null;
+            public List<DependencyCircuit> _relevantBunch = null;
 
-            public List<DependencyCircuit> _obsoleteStack = null;
+            public List<DependencyCircuit> _obsoleteBunch = null;
 
             public bool _metSomeTop = false;
 
@@ -82,11 +82,6 @@ namespace DependencyInjector
                 }
 
                 renderingData . _beingProcessedNodeNumber++;
-
-                for ( ;     renderingData . _beingProcessedNodeNumber  <  circuit . GetLenght ( );     renderingData . _beingProcessedNodeNumber++ )
-                {
-
-                }
             }
         }
 
@@ -98,18 +93,19 @@ namespace DependencyInjector
             
             if ( _nodeToCircuits . ContainsKey ( node ) )
             {
-                renderingData . _obsoleteStack = _nodeToCircuits [ node ];
-                renderingData . _relevantStack = _nodeToCircuits [ node ] . Clone ( );
-                renderingData . _relevantStack . Add ( beingProcessedCircuit );
-                _nodeToCircuits [ node ] = renderingData . _relevantStack;
+                renderingData . _obsoleteBunch = _nodeToCircuits [ node ];
+                renderingData . _relevantBunch = _nodeToCircuits [ node ] . Clone ( );
+                renderingData . _relevantBunch . Add ( beingProcessedCircuit );
+                _nodeToCircuits [ node ] = renderingData . _relevantBunch;
             }
             else
             {
-                renderingData . _relevantStack = new List<DependencyCircuit> ( ) { beingProcessedCircuit };
-                _nodeToCircuits . Add ( node , renderingData . _relevantStack );
+                renderingData . _relevantBunch = new List<DependencyCircuit> ( ) { beingProcessedCircuit };
+                _nodeToCircuits . Add ( node , renderingData . _relevantBunch );
             }
 
-            var nodeIsTopOfCircuit = (renderingData . _metSomeTop)    ||    (nodeNumber == 0);
+            var previousNodeMetTop = renderingData . _metSomeTop;
+            var nodeIsTopOfCircuit = (( nodeNumber == 0 )    ||    previousNodeMetTop);
 
             if ( nodeIsTopOfCircuit )
             {
@@ -118,7 +114,7 @@ namespace DependencyInjector
 
             renderingData . _metSomeTop = false;
             renderingData . _isContinuationAfterFork = false;
-            Continue ( renderingData , beingProcessedCircuit );
+            HandleMeetingTopOrBeingFork ( renderingData , beingProcessedCircuit );
         }
 
 
@@ -129,18 +125,18 @@ namespace DependencyInjector
 
             if ( _nodeToCircuits . ContainsKey ( node ) )
             {
-                _nodeToCircuits [ node ] = renderingData . _relevantStack;
+                _nodeToCircuits [ node ] = renderingData . _relevantBunch;
             }
             else
             {
-                _nodeToCircuits . Add ( node , renderingData . _relevantStack );
+                _nodeToCircuits . Add ( node , renderingData . _relevantBunch );
             }
 
-            Continue ( renderingData , beingProcessedCircuit );
+            HandleMeetingTopOrBeingFork ( renderingData , beingProcessedCircuit );
         }
 
 
-        private void Continue ( DataForCircuitRandering renderingData , DependencyCircuit beingProcessedCircuit )
+        private void HandleMeetingTopOrBeingFork ( DataForCircuitRandering renderingData , DependencyCircuit beingProcessedCircuit )
         {
             var nodeNumber = renderingData . _beingProcessedNodeNumber;
             var node = beingProcessedCircuit . GetNodeByIndex ( nodeNumber );
@@ -156,11 +152,11 @@ namespace DependencyInjector
                     renderingData . _metSomeTop = true;
                 }
 
-                var nodeIsFork = ( node . GetNodeKind ( )  ==  NodeKind . Fork )    ||    DetectNewFork ( renderingData , beingProcessedCircuit );
+                var nodeIsFork = ( node . _isFork )    ||    DetectNewFork ( renderingData , beingProcessedCircuit );
 
                 if ( nodeIsFork )
                 {
-                    HandleFork ( renderingData , beingProcessedCircuit );
+                    RegisterBunch ( renderingData , beingProcessedCircuit );
                 }
             }
             else
@@ -177,11 +173,11 @@ namespace DependencyInjector
             var nextNode = beingProcessedCircuit . GetNodeByIndex ( nodeNumber + 1 );
             var forkIsDetected = false;
 
-            // 'node' must be contained in more than one circuits for existing of a fork
+            // 'node' must be contained in more than one circuits for existance of a fork
 
             var severalCircuitsContainNode = ( _nodeToCircuits [ node ] . Count ) > 1;
 
-            // node must have  'NodeKind . Fork' of 'nodeType' or
+            // and node must have true 'isFork' field or
             // level of stack of nodes must decrease to zero in 'next node' for existing a fork in 'node'
 
             var levelDecreases = ! _nodeToCircuits . ContainsKey ( nextNode );
@@ -190,22 +186,22 @@ namespace DependencyInjector
         }
 
 
-        private void HandleFork ( DataForCircuitRandering renderingData , DependencyCircuit beingProcessedCircuit )
+        private void RegisterBunch ( DataForCircuitRandering renderingData , DependencyCircuit beingProcessedCircuit )
         {
             var nodeNumber = renderingData . _beingProcessedNodeNumber;
             var node = beingProcessedCircuit . GetNodeByIndex ( nodeNumber );
             var renderedCircuits = _nodeToCircuits [ node ];
-            node . ChangeState ( NodeKind . Fork );
+            node . _isFork = true;
 
             if ( renderingData . _canRegesterBunch )
             {
-                var nodeRefersToBunch = ( renderingData . _obsoleteStack != null )    &&    ( _circuitsToBunch . ContainsKey ( renderingData . _obsoleteStack ) );
+                var nodeRefersToBunch = _circuitsToBunch . ContainsKey ( renderingData . _obsoleteBunch );
 
                 if ( nodeRefersToBunch )
                 {
                     var bunch = new Bunch ( renderedCircuits );
                     _circuitsToBunch . Add ( renderedCircuits , bunch );
-                    _circuitsToBunch . Remove ( renderingData . _obsoleteStack );
+                    _circuitsToBunch . Remove ( renderingData . _obsoleteBunch );
                 }
                 else
                 {

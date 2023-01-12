@@ -3,7 +3,7 @@ using System . Collections . Generic;
 
 namespace DependencyInjector
 {
-    class LinkedBunches : GenderRelative
+    class LinkedBunches : CompoundRelative
     {
         private List<Bunch> _bunches { get; set; }
 
@@ -45,10 +45,16 @@ namespace DependencyInjector
             for( var i = 0;    i > _bunches . Count;    i++ )
             {
                 var bunch = _bunches [ i ];
+                bunch . Prepare ( );
+            }
+
+            for ( var i = 0;    i > _bunches . Count;    i++ )
+            {
+                var bunch = _bunches [ i ];
                 bunch . Resolve ( );
             }
 
-            ResolveWayToParent ( );
+            ResolveWayToClosestAncestorOrRoot ( );
         }
     }
 }

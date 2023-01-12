@@ -1,32 +1,63 @@
 {
-  "InterfaceImplimentations": {
-    "Interface": [
+  "Implimentations": {
+    "Items": [
       {
-        "interface": "ISomeInterface",
-        "implimentation": "SomeClass"
+        "abstractionFullName": "DependencyInjector.ISomeInterface",
+        "implimentationFullName": "DependencyInjector.SomeClass"
       },
       {
-        "interface": "IAnotherSomeInterface",
-        "implimentation": "AnotherSomeClass"
+        "abstractionFullName": "DependencyInjector.IAnotherSomeInterface",
+        "implimentationFullName": "DependencyInjector.AnotherSomeClass"
       }
     ]
   },
 
-  "PrimitiveParameters": {
-    "Parameter": [
+  "ValuesForGenerics": {
+    "Items": {
+      "DependencyInjector.SomeClass": [
+        {
+          "var": "T1",
+          "valueFullName": "System.String"
+        },
+        {
+          "var": "T2",
+          "valueFullName": "System.Int32"
+        }
+      ]
+    }
+  },
+
+  "SimpleParameters": {
+    "Items": [
       {
-        "implimentation": "AnotherSomeClass",
-        "ordinalNumberAmongCtorParams": "0",
-        "parameterTypeName": "Int32",
+        "parentCtorFullName": "DependencyInjector.AnotherSomeClass",
+        "ordinalNumberInCtorParamsArray": "0",
+        "parameterTypeFullName": "System.Int32",
         "value": " "
       },
       {
-        "implimentation": "AnotherSomeClass",
-        "ordinalNumberAmongCtorParams": "1",
-        "parameterTypeName": "String",
+        "parentCtorFullName": "DependencyInjector.AnotherSomeClass",
+        "ordinalNumberInCtorParamsArray": "1",
+        "parameterTypeFullName": "System.String",
         "value": " "
       }
     ]
+  },
+
+  "CtorNumbers": {
+    "Items": [
+      {
+        "ctorFullName": "DependencyInjector.AnotherSomeClass",
+        "ordinalNumberCountingFromLeftToRightFromRootAsZeroInDependencyTree": "3",
+        "ordinalNumberInCtorsArray": "0"
+      },
+      {
+        "ctorFullName": "DependencyInjector.SomeClass",
+        "ordinalNumberCountingFromLeftToRightFromRootAsZeroInDependencyTree": "37",
+        "ordinalNumberInCtorsArray": "3"
+      }
+    ]
+
   }
 
 }

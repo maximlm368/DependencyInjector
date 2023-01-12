@@ -33,37 +33,34 @@ namespace DependencyInjector
         }
 
 
-        public List<GenderRelative> ArrangeRelations ( )
+        public List<CompoundRelative> ArrangeRelations ( )
         {
-            var leaves = new List<GenderRelative> ( );
+            var descendantLesses = new List<CompoundRelative> ( );
 
             for ( var i = 0;    i < _circuits . Count;    i++ )
             {
-                GenderRelative possibleDescendant = null;
-                var beingProcessedNode = _circuits [ i ] . _top;
-                FixRelative ( _circuits [ i ] , possibleDescendant , beingProcessedNode );
-                var closestToAncestor = beingProcessedNode;
+                CompoundRelative possibleDescendantPresentedByCurrentCircuit = null;
+                ParamNode closestToAncestorInPossibleDescendant = _circuits [ i ] . _top;
+                SetUpRelative ( _circuits [ i ] , possibleDescendantPresentedByCurrentCircuit , closestToAncestorInPossibleDescendant );
 
-                if ( possibleDescendant . _renderedOnRelation )
+                if ( possibleDescendantPresentedByCurrentCircuit . _renderedOnRelation )
                 {
                     continue;
                 }
 
-                leaves . Add ( possibleDescendant );
-                ConductRelationUntillAncestorIsRenderedOrAbsent ( leaves , possibleDescendant , closestToAncestor );
+                descendantLesses . Add ( possibleDescendantPresentedByCurrentCircuit );
+                ConductRelationUntillAncestorIsRenderedOrAbsent ( descendantLesses , possibleDescendantPresentedByCurrentCircuit , closestToAncestorInPossibleDescendant );
             }
 
-            return leaves;
+            return descendantLesses;
         }
 
 
-        private void FixRelative ( DependencyCircuit circuitPresentsPossibleRelative , GenderRelative possibleRelative , ParamNode nodeInPresentingCircuit )
+        private void SetUpRelative ( DependencyCircuit circuitPresentsPossibleRelative , CompoundRelative possibleRelative , ParamNode closestToAncestor )
         {
-            ParamNode closestToAncestor = null;
-
             if ( circuitPresentsPossibleRelative . _isBunched )
             {
-                possibleRelative = GetBunchByBunchedCircuit ( nodeInPresentingCircuit , circuitPresentsPossibleRelative , _nodeToCircuits , _circuitsToBunch );
+                possibleRelative = GetBunchByBunchedCircuit ( closestToAncestor , circuitPresentsPossibleRelative );
                 closestToAncestor = ( ( Bunch ) possibleRelative ) . _highestNode;
 
                 if ( ( ( Bunch ) possibleRelative ) . _linked )
@@ -77,60 +74,83 @@ namespace DependencyInjector
                 possibleRelative = circuitPresentsPossibleRelative;
                 closestToAncestor = circuitPresentsPossibleRelative . _top;
             }
-
-            nodeInPresentingCircuit = closestToAncestor;
         }
 
 
-        private Bunch GetBunchByBunchedCircuit ( ParamNode beingProcessedNode ,   DependencyCircuit beingProcessedCircuit ,  
-                                       Dictionary<ParamNode, List<DependencyCircuit>> nodeToCircuits ,   Dictionary<List<DependencyCircuit>, Bunch> circuitsToBunch )
+        private Bunch GetBunchByBunchedCircuit ( ParamNode inBeingProcessedCircuit ,   DependencyCircuit beingProcessedCircuit )
         {
-            var currentIndex = beingProcessedCircuit . GetNodeIndex ( beingProcessedNode );
+            var currentIndex = beingProcessedCircuit . GetNodeIndex ( inBeingProcessedCircuit );
             Bunch bunch = null;
+            
+            GoTowardBottom ( currentIndex , bunch , beingProcessedCircuit );
 
-            for ( ;    currentIndex > beingProcessedCircuit . GetLenght();    currentIndex++ )
+            if ( bunch != null )
             {
-                if ( beingProcessedCircuit . GetNodeByIndex(currentIndex) . GetNodeKind ( )   ==   NodeKind . Fork )
-                {
-                    try
-                    {
-                        bunch = GetBunch ( beingProcessedNode , nodeToCircuits , circuitsToBunch );
-                        return bunch;
-                    }
-                    catch ( System . Collections . Generic . KeyNotFoundException )
-                    {
-                        break;
-                    }
-                }
+                return bunch;
             }
 
-            for ( ;    currentIndex  >  beingProcessedCircuit . GetLenght ( );    currentIndex-- )
-            {
-                try
-                {
-                    bunch = GetBunch ( beingProcessedNode , nodeToCircuits , circuitsToBunch );
-                }
-                catch ( System . Collections . Generic . KeyNotFoundException )
-                {
-                    continue;
-                }
-            }
+            GoTowardTop ( currentIndex , bunch , beingProcessedCircuit );
 
             if ( bunch == null )
             {
-                throw new NotBunchedCircuitException;
+                throw new NotBunchedCircuitException ( );
             }
 
             return bunch;
         }
 
 
-        private Bunch GetBunch ( ParamNode beingProcessed ,
-                                 Dictionary<ParamNode , List<DependencyCircuit>> nodeToCircuits , Dictionary<List<DependencyCircuit> , Bunch> circuitsToBunch )
+        private void GoTowardTop ( int currentIndex, Bunch bunch, DependencyCircuit beingProcessedCircuit )
+        {
+            for ( ;    currentIndex >= 0;    currentIndex-- )
+            {
+                var currentNode = beingProcessedCircuit . GetNodeByIndex ( currentIndex );
+                
+                if ( currentNode . _isFork )
+                {
+                    try
+                    {
+                        bunch = GetBunch ( currentNode );
+                        return;
+                    }
+                    catch ( System . Collections . Generic . KeyNotFoundException )
+                    {
+                        continue;
+                    }
+                }
+            }
+        }
+
+
+        private void GoTowardBottom ( int currentIndex , Bunch bunch , DependencyCircuit beingProcessedCircuit )
+        {
+            for ( ;    currentIndex > beingProcessedCircuit . GetLenght ( );    currentIndex++ )
+            {
+                var currentNode = beingProcessedCircuit . GetNodeByIndex ( currentIndex );
+
+                if ( currentNode . _isFork )
+                {
+                    try
+                    {
+                        bunch = GetBunch ( currentNode );
+                        return;
+                    }
+                    catch ( System . Collections . Generic . KeyNotFoundException )
+                    {
+                        // on highest fork ( in terms of level in tree ) in bunch that bunch is registered 
+
+                        break;
+                    }
+                }
+            }
+        }
+
+
+        private Bunch GetBunch ( ParamNode beingProcessed )
         {
             Bunch bunch = null;
-            var circuitStack = nodeToCircuits [ beingProcessed ];
-            bunch = circuitsToBunch [ circuitStack ];
+            var circuitsThatHaveNode = _nodeToCircuits [ beingProcessed ];
+            bunch = _circuitsToBunch [ circuitsThatHaveNode ];
             return bunch;
         }
 
@@ -151,19 +171,18 @@ namespace DependencyInjector
         }
 
 
-        private void ConductRelationUntillAncestorIsRenderedOrAbsent ( List<GenderRelative> leaves , GenderRelative possibleDescendant , ParamNode nodeOnWayToAncestor )
+        private void ConductRelationUntillAncestorIsRenderedOrAbsent ( List <CompoundRelative> descendantLesses ,
+                                                                       CompoundRelative possibleDescendant , ParamNode closestToAncestor )
         {
             var counter = 0;
 
             while ( true )
             {
-                if ( leaves . Contains ( possibleDescendant ) )
-                {
-                    if( counter > 0 )
-                    {
-                        leaves . Remove ( possibleDescendant );
-                    }
+                var descendantLessAncestorIsAchieved = descendantLesses . Contains ( possibleDescendant )     &&     (counter > 0);
 
+                if ( descendantLessAncestorIsAchieved )
+                {
+                    descendantLesses . Remove ( possibleDescendant );
                     break;
                 }
 
@@ -172,8 +191,8 @@ namespace DependencyInjector
                     break;
                 }
 
-                nodeOnWayToAncestor = nodeOnWayToAncestor . _parent;
-                var rootIsAchieved = ( nodeOnWayToAncestor == null );
+                closestToAncestor = closestToAncestor . _parent;
+                var rootIsAchieved = ( closestToAncestor == null );
 
                 if ( rootIsAchieved )
                 {
@@ -181,30 +200,30 @@ namespace DependencyInjector
                     break;
                 }
 
-                SetUpAncestorOrStepForward ( nodeOnWayToAncestor , possibleDescendant );
+                SetUpAncestorOrStepTowardIt ( closestToAncestor , possibleDescendant );
                 counter++;
             }
         }
 
 
-        private void SetUpAncestorOrStepForward ( ParamNode nodeBetweenClosestRelatives , GenderRelative possibleDescendant )
+        private void SetUpAncestorOrStepTowardIt ( ParamNode closestToAncestor , CompoundRelative possibleDescendant )
         {
-            GenderRelative ancestor = null;
+            CompoundRelative ancestor = null;
 
-            if ( _nodeToCircuits . ContainsKey ( nodeBetweenClosestRelatives ) )
+            if ( _nodeToCircuits . ContainsKey ( closestToAncestor ) )
             {
-                var nodeInAncestor = nodeBetweenClosestRelatives;
-                var presentingAncestorCircuit = _nodeToCircuits [ nodeInAncestor ] [ 0 ];
+                var thatAchievedAncestor = closestToAncestor;
+                var presentingAncestorCircuit = _nodeToCircuits [ thatAchievedAncestor ] [ 0 ];
                 var accomplishedDescendant = possibleDescendant;
-                FixRelative ( presentingAncestorCircuit , ancestor , nodeInAncestor );
+                SetUpRelative ( presentingAncestorCircuit , ancestor , thatAchievedAncestor );
                 //ancestor . AddChild ( accomplishedDescendant );
-                accomplishedDescendant . SetParent ( ancestor );
+                accomplishedDescendant . SetClosestAncestor ( ancestor );
                 accomplishedDescendant . _renderedOnRelation = true;
                 possibleDescendant = ancestor;
             }
             else
             {
-                possibleDescendant . AddToWayToParent ( nodeBetweenClosestRelatives );
+                possibleDescendant . AddToWayToClosestAncestorOrRoot ( closestToAncestor );
             }
         }
     }

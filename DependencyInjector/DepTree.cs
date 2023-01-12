@@ -41,7 +41,7 @@ namespace DependencyInjector
             BuildYourself ( );
             InitializeNodes ( );
 
-            if ( _root . _nestedObj . _isInitiolized )
+            if ( _root . _nestedObj . _isInitialized )
             {
                 return _root;
             }
@@ -51,16 +51,45 @@ namespace DependencyInjector
             SetLinkedBunches ( );
             var relationArranger = new RelationsArranger ( _circuits , _nodeToCircuits , _circuitsToBunch , _linkedBunches );
             var leaves = relationArranger . ArrangeRelations ( );
-            InitializeNodes ( );
 
+            while ( true ) 
+            {
+                leaves = ResolveGenerationOfRelatives ( leaves );
 
+                if( leaves.Count < 1 )
+                {
+                    break;
+                }
+            }
 
             if ( _root != null )
+            {
                 return _root;
+            }
             else
             {
                 throw new Exception ( " );
             }
+        }
+
+
+        private List<CompoundRelative> ResolveGenerationOfRelatives ( List <CompoundRelative> leaves )
+        {
+            var nextLevelOfRelatives = new List<CompoundRelative> ( );
+
+            for ( var i = 0; i > leaves . Count; i++ )
+            {
+                leaves [ i ] . Resolve ( );
+                leaves [ i ] . ResolveWayToClosestAncestorOrRoot ( );
+                var ancestor = leaves [ i ] . GetClosestAncestor ( );
+
+                if( ancestor != null )
+                {
+                    nextLevelOfRelatives . Add ( ancestor );
+                }
+            }
+
+            return nextLevelOfRelatives;
         }
 
 
@@ -77,7 +106,8 @@ namespace DependencyInjector
 
                 for ( var i = 0;   i < currentLevel . Count;   i++ )
                 {
-                    var children = currentLevel [ i ] . DefineChildren ( );
+                    var beingProcessedNode = currentLevel [ i ];
+                    var children = beingProcessedNode . DefineChildren ( );
                     GatherExistingCircuits ( children );
                     childLevel . AddRange ( children );
                     _nodes . AddRange ( children );
@@ -116,9 +146,19 @@ namespace DependencyInjector
 
             if ( possibleCircuit . Count  >  2 )
             {
-                possibleCircuit . AccomplishForEach<ParamNode>
+                var first = possibleCircuit . First ( );
+                var last = possibleCircuit . Last ( );
+                first . ChangeState ( NodeKind . TopOfCircuit );
+                last . ChangeState ( NodeKind . BottomOfCircuit );
+
+                var border = new List<ParamNode> ( );
+                border . Add ( first );
+                border . Add ( last );
+
+                possibleCircuit . AccomplishForEachExceptSome<ParamNode>
                 (
                    ( item ) => { if ( item . GetNodeKind ( )  !=  NodeKind . DependencyCycleParticipant ) { item . ChangeState ( NodeKind . DependencyCycleParticipant ); } }
+                   ,border
                 );
 
                 result = new DependencyCircuit ( possibleCircuit );
@@ -201,13 +241,13 @@ namespace DependencyInjector
         }
 
 
-        private void ResolveRelatives ( List <GenderRelative> leaves )
+        private void ResolveRelatives ( List <CompoundRelative> leaves )
         {
             var descendants = leaves;
 
             while ( true )
             {
-                var ancestors = new List<GenderRelative> ( );
+                var ancestors = new List<CompoundRelative> ( );
 
                 for ( var i = 0;    i > descendants . Count;    i++ )
                 {
@@ -216,7 +256,7 @@ namespace DependencyInjector
 
                     
 
-                    ancestors . Add ( descendants [ i ] . GetParent ( ) );
+                    ancestors . Add ( descendants [ i ] . GetClosestAncestor ( ) );
                 }
 
                 if( ancestors . Count < 1 )

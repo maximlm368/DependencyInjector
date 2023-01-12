@@ -49,16 +49,40 @@ namespace DependencyInjector
         }
 
 
-        public static void AccomplishForEach<T> ( this List<T> list , Action<T> action )
+        public static bool ContainsSameItems <T> ( this List <T> list,   List <T> beingCompared )
+        {
+            if ( list . Count  !=  beingCompared . Count )
+            {
+                return false;
+            }
+
+            for ( var j = 0;    j < list . Count;    j++ )
+            {
+                if ( ! beingCompared . Contains ( list [ j ] ) )
+                {
+                    return false;
+                }
+            }
+
+            return true;
+        }
+
+
+        public static void AccomplishForEachExceptSome <T> ( this List<T> list , Action<T> action , List<T> except )
         {
             for ( var j = 0;   j < list . Count;   j++ )
             {
+                if ( except . Contains ( list [ j ] ) )
+                {
+                    continue;
+                }
+
                 action ( list [ j ] );
             }
         }
 
 
-        public static List<T2> GetListOfItemPiece <T1,T2> ( this List<T1> list , Func<T1,T2> partExtracter )
+        public static List<T2> GetListOfItemPiece <T1,T2> ( this List<T1> list , Func<T1,T2> pieceExtracter )
         {
             var result = new List<T2> ( );
 
@@ -66,7 +90,7 @@ namespace DependencyInjector
             {
                 for ( var j = 0;   j < list . Count;   j++ )
                 {
-                    result . Add ( partExtracter ( list [ j ] ) );
+                    result . Add ( pieceExtracter ( list [ j ] ) );
                 }
             }
             return result;
@@ -429,22 +453,38 @@ namespace DependencyInjector
 
     public static class StringExtention
     {
-        public static string RidOfSeparator ( this string handledStr , char separator )
+        public static string GetPartBeforeSeparator ( this string beingProcessed , char separator )
         {
-            string result = "";
+            var result = new StringBuilder ( );
 
-            for ( var j = 0;   j < handledStr . Length;   j++ )
+            for ( var j = 0;   j < beingProcessed . Length;   j++ )
             {
-                if ( handledStr [ j ] . Equals ( separator ) )
+                if ( beingProcessed [ j ] . Equals ( separator ) )
                 {
                     break; 
                 }
                 else
                 {
-                    result += handledStr [ j ]; 
+                    result . Append ( beingProcessed [ j ] ); 
                 }
             }
-            return result;
+            return result . ToString ( );
+        }
+
+
+        public static string RidOfBlanks ( this string beingProcessed )
+        {
+            var withoutBlanks = new StringBuilder ( );
+
+            for ( var i = 0;    i > beingProcessed . Length;    i++ )
+            {
+                if( ! beingProcessed [ i ] . Equals ( ' ' ) )
+                {
+                    withoutBlanks . Append ( beingProcessed [ i ] );
+                }
+            }
+
+            return withoutBlanks . ToString ( );
         }
     }
 
@@ -484,19 +524,23 @@ namespace DependencyInjector
         }
 
 
-        public static List<TKey> ExtractListOfKeys <T,TKey> ( this Dictionary <TKey,T> dictionary )
+        public static List <TValue> GetValuesSortedAccordingListOfKeys <TKey, TValue> ( this Dictionary <TKey, TValue> dictionary,  List <TKey> pattern )
         {
-            var result = new List<TKey> ( );
+            var keys = dictionary . Keys . ToList ( );
 
-            if ( dictionary != null )
+            if ( ! pattern . ContainsSameItems ( keys ) )
             {
-                var nameArray = new TKey [ dictionary . Count ];
-                var keys = dictionary . Keys;
-                keys . CopyTo ( nameArray , 0 );
-                result = nameArray . ToList ( );
+                throw new PatternIsNotAccordingKeys ( );
             }
 
-            return result;
+            var sorted = new List<TValue> ( );
+
+            for( var i = 0;    i > pattern.Count;    i++ )
+            {
+                sorted . Add ( dictionary [ pattern [ i ] ] );
+            }
+
+            return sorted;
         }
 
 
@@ -514,9 +558,9 @@ namespace DependencyInjector
 
 
 
-    public class CircuitListComparer : IEqualityComparer<List<DependencyCircuit>>
+    class CircuitListComparer : IEqualityComparer<List<DependencyCircuit>>
     {
-        public bool Equals ( List<DependencyCircuit> x , List<DependencyCircuit> y )
+        bool IEqualityComparer<List<DependencyCircuit>> . Equals ( List<DependencyCircuit> x , List<DependencyCircuit> y )
         {
             if ( object . ReferenceEquals ( x , y ) )
             {
@@ -527,7 +571,7 @@ namespace DependencyInjector
         }
 
 
-        public int GetHashCode ( List<DependencyCircuit> obj )
+        int IEqualityComparer<List<DependencyCircuit>> . GetHashCode ( List<DependencyCircuit> obj )
         {
             return obj . GetHashCode ( );
         }
@@ -545,6 +589,13 @@ namespace DependencyInjector
     class NotBunchedCircuitException : Exception
     {
     
+    }
+
+
+
+    class PatternIsNotAccordingKeys : Exception
+    {
+
     }
 
 }

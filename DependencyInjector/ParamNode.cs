@@ -10,13 +10,17 @@ namespace DependencyInjector
 
     class ParamNode
     {
-        private int _ordinalNumberInParentCtor;
+        private static int _idCounter = 0;
 
-        private DependencyInjection _config;
+        private int _ordinalNumberInParentCtor;
 
         private List<ParamNode> _children;
 
         private NodeType _nodeType;
+
+        private ParamNode _initializingTemplate;
+
+        public int _id { get; private set; }
 
         public ParamNode _parent { get; private set; }
 
@@ -24,102 +28,38 @@ namespace DependencyInjector
 
         public int _myLevelInTree { get; private set; }
 
-        public bool _isInitiolized { get; private set; }
+        public bool _isInitialized { get; private set; }
+
+        public bool _isFork;
 
 
-        public ParamNode ( Type paramType , NodeType nodeType )
+        #region Ctors
+        public ParamNode ( Type typeOfNested , NodeType nodeType )
         {
-            _nestedObj = new NestedObject ( paramType );
+            _id = _idCounter;
+            _idCounter++;
+            _nestedObj = new NestedObject ( typeOfNested, _id );
             _ordinalNumberInParentCtor = 0;
             _myLevelInTree = 0;
             _nodeType = nodeType;
-            _isInitiolized = false;
+            _isInitialized = false;
         }
 
 
-        public ParamNode ( Type paramType , int ordinalNumberInParentCtorParams , ParamNode parent , NodeType nodeType )
+        public ParamNode ( Type typeOfNested , int ordinalNumberInParentCtorParams , ParamNode parent , NodeType nodeType )
         {
-            _nestedObj = new NestedObject ( paramType );
+            _id = _idCounter;
+            _idCounter++;
+            _nestedObj = new NestedObject ( typeOfNested, _id );
             _ordinalNumberInParentCtor = ordinalNumberInParentCtorParams;
             _parent = parent;
             _myLevelInTree = parent . _myLevelInTree + 1;
             _nodeType = nodeType;
-            _isInitiolized = false;
+            _isInitialized = false;
         }
+        #endregion Ctors
 
-
-        //private DependencyCircuit CreateChain ( bool cycleFound , List<ParamNode> possibleChain )
-        //{
-        //    DependencyCircuit result;
-        //    possibleChain . Reverse ( );
-
-        //    if ( cycleFound )
-        //    {
-        //        _nodeType = new DependencyCycleParticipant ( );
-        //        possibleChain . AccomplishForEach<ParamNode>
-        //        (
-        //           ( item ) => { if ( item . _nodeType . _kind  !=  NodeKind . DependencyCycleParticipant ) { item . _nodeType = new DependencyCycleParticipant ( ); } }
-        //        );
-
-        //        result = new DependencyCircuit ( possibleChain );
-        //    }
-        //    else
-        //    {
-        //        result = DependencyCircuit . CreateEmptyChain ( );
-        //    }
-        //    return result;
-        //}
-
-
-        //public void FindCyclicDependency ( List<DependencyChain> dependencyChains )
-        //{
-        //    var cycleFound = false;
-
-        //    var possibleChain = new List<ParamNode> ( );
-
-        //    possibleChain . Add ( this );
-
-        //    ParamNode probableCoincidentAncestor = _parent;
-
-        //    while ( true )
-        //    {
-        //        if ( probableCoincidentAncestor == null )
-        //        {
-        //            break;
-        //        }
-
-        //        possibleChain . Add ( probableCoincidentAncestor );
-
-        //        if ( ! probableCoincidentAncestor . Equals ( this ) )
-        //        {
-        //            probableCoincidentAncestor = probableCoincidentAncestor . _parent;
-
-        //            continue;
-        //        }
-        //        else
-        //        {
-        //            cycleFound = true;
-
-        //            break;
-        //        }
-        //    }
-
-        //    if ( cycleFound )
-        //    {
-        //        _nodeState = new DependencyCycleLeaf ( );
-
-        //        possibleChain . AccomplishForEach <ParamNode> 
-        //        ( 
-        //           ( item ) => { if ( item . _nodeState._kind   !=   NodeKind . DependencyCycleLeaf ) { item . _nodeState = new DependencyCycleLeaf ( ); } } 
-        //        );
-
-        //        var chain = new DependencyChain ( possibleChain );
-
-        //        dependencyChains . Add ( chain );
-        //    }
-        //}
-
-
+    
         /// <summary>
         /// 
         /// </summary>
@@ -173,13 +113,17 @@ namespace DependencyInjector
         }
 
 
+        #region Initializing
+
         public void InitializeOrdinary ( )
         {
             var readyParamObjects = new List<object> ( );
 
             for ( var i = 0;   i < _children . Count;   i++ )
             {
-                if ( ! _children [ i ] . _nestedObj . _isInitiolized  )
+                var childrenNotInitialized = ! _children [ i ] . _nestedObj . _isInitialized;
+
+                if ( childrenNotInitialized )
                 {
                     throw new NotInitializedChildException ( );
                 }
@@ -192,122 +136,73 @@ namespace DependencyInjector
         }
 
 
+        public void InitializePassingOverAbsentParams ( )
+        {
+            var readyParamObjects = new List<object> ( );
+            var without = new List<Type> ( );
+
+            for ( var i = 0;    i < _children . Count;    i++ )
+            {
+                var childNotInitialized = ! _children [ i ] . _nestedObj . _isInitialized;
+                var childIsDependencyCycleParticipant = _children [ i ] . _nodeType . _kind  ==  NodeKind . DependencyCycleParticipant;
+
+                if ( childNotInitialized    &&    childIsDependencyCycleParticipant )
+                {
+                    var childType = _children [ i ] . _nestedObj . _typeOfObject;
+                    without . Add ( childType );
+                    continue;
+                }
+
+                if ( childNotInitialized )
+                {
+                    throw new NotInitializedChildException ( );
+                }
+
+                object readyParam = _children [ i ] . _nestedObj . _objectItself;
+                readyParamObjects . Add ( readyParam );
+            }
+
+            _nestedObj . InitializeYourSelfWithoutSomeParams ( readyParamObjects . ToArray ( ) , without );
+        }
+
+
         public void InitializeSimple ( )
         {
             var parentType = _parent . _nestedObj . _typeOfObject;
-            var simpleParamInform = _config . GetSimpleParameter ( parentType . FullName , _ordinalNumberInParentCtor );
-            var obj = _config . GetParamValue ( simpleParamInform );
-            _nestedObj . InitializeYourSelf ( obj );
+            _nestedObj . InitializeYourSelf ( parentType , _ordinalNumberInParentCtor );
+        }
+
+
+        public void InitializeByTemplate ( )
+        {
+            _nestedObj . InitializeYourSelf ( _initializingTemplate );
         }
 
 
         public void InitializeNestedObject ( )
         {
-            if( ! _isInitiolized )
+            if( ! _isInitialized )
             {
                 _nodeType . InitializeNested ( this );
-                _isInitiolized = true;
+                _isInitialized = true;
             }
         }
 
 
-        //public void ResetParentState ( )
-        //{
-        //    if ( _nodeState . _kind == NodeKind . DependencyCycleParticipant )
-        //    {
-        //        _parent . _nodeState = new DependencyCycleParticipant ( );
-        //    }
-        //}
+        public void InitializeNestedObject ( ParamNode template )
+        {
+            if ( !_isInitialized )
+            {
+                _initializingTemplate = template ?? throw new Exception ( )
+                InitializeNestedObject ( );
+            }
+        }
 
-
-        //public void SetFork ( )
-        //{
-        //    if ( this . _nodeState . _kind == NodeKind . DependencyCycleParticipant )
-        //    {
-        //        this . _parent . _nodeState = new DependencyCycleParticipant ( );
-        //    }
-
-
-        //}
-
-
-        //public List<ParamNode> DefineChildren ( int levelInTree,  out List<DependencyChain> dependencyChains )
-        //{
-        //    List<DependencyChain> chains = new List<DependencyChain> ( );
-        //    var paramTypes = _nestedObj . GetCtorParamTypes ( );
-        //    var result = _nodeState . DefineChildren ( this , paramTypes );
-
-        //    dependencyChains = chains;
-
-
-        //    if()
-        //    {
-        //        this . _nestedObj . SetInterfaceImplimentation ( this . _config );
-
-        //        if ( !this . _nestedObj . IsSimple )
-        //        {
-        //            var paramInfos = this . _nestedObj . GetCtorParamInfos ( );
-        //            object [ ] paramObjects = new object [ paramInfos . Count ];
-        //            var metSimple = false;
-
-        //            for ( var paramCounter = 0; paramCounter < paramInfos . Count; paramCounter++ )
-        //            {
-        //                Type paramType = paramInfos [ paramCounter ] . ParameterType;
-        //                bool isSimple = ( paramType . IsPrimitive ) || ( paramType . FullName == "System.String" );
-
-        //                if ( metSimple && isSimple )
-        //                { continue; }
-
-        //                if ( !metSimple && isSimple )
-        //                {
-        //                    this . _config . InitializePrimitiveParamsInWholeList ( this . _nestedObj . typeOfObject , paramInfos , paramObjects );
-        //                    metSimple = true;
-        //                }
-
-        //                if ( paramType . IsInterface )
-        //                {
-        //                    paramType = Type . GetType ( this . _config . GetCtorNameByInterface ( paramType . FullName ) );
-        //                }
-
-        //                var node = new ParamNode ( paramType , paramCounter , this , levelInTree );
-
-        //                List<ParamNode> oneChain;
-
-        //                if ( node . FindCyclicDependency ( out oneChain ) )
-        //                {
-        //                    this . isLeaf = true;
-        //                }
-
-        //                if ( oneChain != null && oneChain . Count > 0 )
-        //                {
-        //                    dependencyChains . Add ( oneChain );
-        //                }
-
-        //                result . Add ( node );
-        //            }
-
-        //            for ( var i = 0; i < result . Count; i++ )
-        //            {
-        //                if ( ( paramObjects [ i ] != null ) && ( paramObjects [ i ] is SimpleParameter ) )
-        //                {
-        //                    var item = ( SimpleParameter ) paramObjects [ i ];
-
-        //                    result [ i ] . nestedObject = _config . GetParamValue ( item );
-        //                }
-        //            }
-        //        }
-        //        this . _children = result;
-
-        //        return result;
-        //    }
-
-        //    return result;
-        //}
+        #endregion Initializing
 
 
         public List<ParamNode> DefineChildren ( )
         {
-            List<DependencyCircuit> chains = new List<DependencyCircuit> ( );
             var childTypes = _nestedObj . GetCtorParamTypes ( );
             var result = _nodeType . DefineChildren ( this , childTypes );
             return result;
@@ -318,15 +213,9 @@ namespace DependencyInjector
         {
             switch ( kind ) 
             {
-                case    NodeKind . Fork :
+                case NodeKind . TopOfCircuit :
                 {
-                    _nodeType = new Fork ( );
-                    break;
-                }
-
-                case NodeKind . TopOfLowestInBunch :
-                {
-                    _nodeType = new TopOfLowestInBunch ( );
+                    _nodeType = new TopOfCircuit ( );
                     break;
                 }
 
@@ -363,12 +252,6 @@ namespace DependencyInjector
         {
             return _nodeType . _kind;
         }
-
-
-        //public void InitializePreliminarily ()
-        //{
-        //    throw new NotImplementedException ( "InitializePreliminarily" );
-        //}
 
     }
 
