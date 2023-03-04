@@ -6,11 +6,11 @@ using System . Reflection;
 
 namespace DependencyInjector
 {
-    class DependencyCircuit : CompoundRelative, IComparable
+    class DependencyCircuit : CompoundRelative
     {
         private static int _idCounter = 0;
 
-        private bool _isComplited;
+        private bool _isResolved;
 
         private bool _isPrepared;
 
@@ -31,9 +31,11 @@ namespace DependencyInjector
 
         public DependencyCircuit ( List<ParamNode> nodes )
         {
+            var argIsIncorrect = "arg 'nodes' as list must have more then two items";
+
             if ( nodes . Count < 2 )
             {
-                throw new ArgumentException ( " );
+                throw new ArgumentException ( argIsIncorrect );
             }
 
             VerifyChainConsistency ( nodes );
@@ -49,13 +51,21 @@ namespace DependencyInjector
 
         private void VerifyChainConsistency ( List<ParamNode> nodes )
         {
+            var nullItem = "arg 'nodes' cant contain null item";
+            var incorrectParent = "next to item doesnt coincide with its parent and number of item is ";
+
             for ( var i = 0;    i < nodes . Count - 1;    i++ )
             {
-                bool parentIsCorrect = Object . ReferenceEquals ( nodes [ i ] . _parent , nodes [ i + 1 ] );
-
-                if ( ( nodes [ i ] == null )     ||     ! parentIsCorrect )
+                if ( nodes [ i ] == null )
                 {
-                    throw new Exception ( " );
+                    throw new ArgumentNullException ( nullItem );
+                }
+
+                bool parentIsNotCorrect = ! Object . ReferenceEquals ( nodes [ i ] . _parent , nodes [ i + 1 ] );
+
+                if ( parentIsNotCorrect )
+                {
+                    throw new Exception ( incorrectParent + i );
                 }
             }
         }
@@ -72,27 +82,6 @@ namespace DependencyInjector
         }
 
 
-        int IComparable.CompareTo ( object obj )
-        {
-            var result = 0;
-
-            DependencyCircuit comparable;
-
-            if ( !( obj is DependencyCircuit ) )
-            {
-                throw new Exception ( ");
-            }
-            else
-            {
-                comparable = ( DependencyCircuit ) obj;
-            }
-
-            result = _top . _myLevelInTree - comparable . _top . _myLevelInTree;
-
-            return result;
-        }
-
-
         public bool HasThisTop ( ParamNode possibleTop )
         {
             if( object . ReferenceEquals ( _top , possibleTop ) )
@@ -101,12 +90,6 @@ namespace DependencyInjector
             }
 
             return false;
-        }
-
-
-        private void InitializeBottomByTop ()
-        {
-            throw new NotImplementedException ( "InitializeBottomByTop" );
         }
 
 
@@ -143,14 +126,15 @@ namespace DependencyInjector
 
         public override void Resolve ( )
         {
-            if( ! _isComplited )
+            if( ! _isResolved )
             {
                 Prepare ( );
                 var goingUpContinues = true;
 
                 while ( goingUpContinues )
                 {
-                    //in this case we skip attempt if child is not initialized so we will continue attempt again 
+                    //in case the circuit is bunched
+                    //we skip attempt if child is not initialized so we will continue attempt again 
                     //for example if we process fork node in bunch and intersecting circuit is not ready
                     //then we will resolve intersecting circuit we use result (not complited) of this circuit
 
@@ -167,7 +151,8 @@ namespace DependencyInjector
 
                     if ( arrivedToTop )
                     {
-                        _isComplited = true;
+                        _top . EndUpIinitialization ( );
+                        _isResolved = true;
                         break;
                     }
 
@@ -185,7 +170,6 @@ namespace DependencyInjector
                  //we should not process it and throw to enter of layer
 
                 _top . InitializeNestedObject ( );
-                InitializeBottomByTop ( );
                 _bottomCoincidesTop . InitializeNestedObject ( _top );
                 _beingProcessed = _bottomCoincidesTop . _parent;
                 _isPrepared = true;

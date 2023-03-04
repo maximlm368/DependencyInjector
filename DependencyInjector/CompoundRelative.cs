@@ -60,13 +60,4 @@ namespace DependencyInjector
         public abstract void Resolve ( );
 
     }
-
-
-
-    //interface IRequiringPreparing
-    //{
-    //    void Prepare ( );
-    //}
-
-
 }

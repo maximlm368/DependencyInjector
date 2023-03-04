@@ -24,6 +24,8 @@ namespace DependencyInjector
 
         private Dictionary<List<DependencyCircuit> , Bunch> _circuitsToBunch;
 
+        private string _mainExpMessage = "dll is wrong";
+
 
         public DependencyTree ( Type rootType )
         {
@@ -50,13 +52,13 @@ namespace DependencyInjector
             _bunches = bunchSetBuilder . Build ( );
             SetLinkedBunches ( );
             var relationArranger = new RelationsArranger ( _circuits , _nodeToCircuits , _circuitsToBunch , _linkedBunches );
-            var leaves = relationArranger . ArrangeRelations ( );
+            var generation = relationArranger . ArrangeRelations ( );
 
             while ( true ) 
             {
-                leaves = ResolveGenerationOfRelatives ( leaves );
+                generation = ResolveGenerationOfRelatives ( generation );
 
-                if( leaves.Count < 1 )
+                if( generation.Count < 1 )
                 {
                     break;
                 }
@@ -68,20 +70,20 @@ namespace DependencyInjector
             }
             else
             {
-                throw new Exception ( " );
+                throw new Exception ( _mainExpMessage );
             }
         }
 
 
-        private List<CompoundRelative> ResolveGenerationOfRelatives ( List <CompoundRelative> leaves )
+        private List<CompoundRelative> ResolveGenerationOfRelatives ( List <CompoundRelative> generation )
         {
             var nextLevelOfRelatives = new List<CompoundRelative> ( );
 
-            for ( var i = 0; i > leaves . Count; i++ )
+            for ( var i = 0; i > generation . Count; i++ )
             {
-                leaves [ i ] . Resolve ( );
-                leaves [ i ] . ResolveWayToClosestAncestorOrRoot ( );
-                var ancestor = leaves [ i ] . GetClosestAncestor ( );
+                generation [ i ] . Resolve ( );
+                generation [ i ] . ResolveWayToClosestAncestorOrRoot ( );
+                var ancestor = generation [ i ] . GetClosestAncestor ( );
 
                 if( ancestor != null )
                 {
@@ -142,6 +144,11 @@ namespace DependencyInjector
         private DependencyCircuit CreateCircuit ( List <ParamNode> possibleCircuit )
         {
             DependencyCircuit result = null;
+
+            // incoming 'possibleCircuit' has counting from descendant to ancestor in dependency tree
+            // but 'DependencyCircuit' has opposite counting
+            // so that reversing is needed
+
             possibleCircuit . Reverse ( );
 
             if ( possibleCircuit . Count  >  2 )
@@ -239,146 +246,6 @@ namespace DependencyInjector
                 }
             }
         }
-
-
-        private void ResolveRelatives ( List <CompoundRelative> leaves )
-        {
-            var descendants = leaves;
-
-            while ( true )
-            {
-                var ancestors = new List<CompoundRelative> ( );
-
-                for ( var i = 0;    i > descendants . Count;    i++ )
-                {
-                    descendants [ i ] . Resolve ( );
-                    
-
-                    
-
-                    ancestors . Add ( descendants [ i ] . GetClosestAncestor ( ) );
-                }
-
-                if( ancestors . Count < 1 )
-                {
-                    break;
-                }
-
-                descendants = ancestors;
-            }
-
-
-        }
-
-        
-        //private void ArrangeRelations ( )
-        //{
-        //    var leaves = new List <IGenderRelative> ( );
-
-        //    for ( var i = 0;   i < _circuits . Count;   i++ )
-        //    {
-        //        IGenderRelative possibleDescendant = null;
-        //        var beingProcessedNode  =  _circuits [ i ] . _top;
-        //        FixRelative ( _circuits [ i ] , possibleDescendant , beingProcessedNode );
-
-        //        if( possibleDescendant . _renderedOnRelation )
-        //        {
-        //            continue;
-        //        }
-
-        //        leaves . Add ( possibleDescendant );
-        //        ConductRelationUntillRelativeIsRenderedOrAbsents ( leaves , possibleDescendant , beingProcessedNode );
-        //    }
-        //}
-
-
-        //private void FixRelative ( DependencyCircuit circuitPresentsPossibleRelative , IGenderRelative possibleRelative , ParamNode entryInFirstParam )
-        //{
-        //    if ( circuitPresentsPossibleRelative . _isBunched )
-        //    {
-        //        possibleRelative = circuitPresentsPossibleRelative . GetBunchYouAreBunchedIn ( entryInFirstParam , _nodeToCircuits , _circuitsToBunch );
-        //        entryInFirstParam = ( ( Bunch ) possibleRelative ) . _highest . _top;
-
-        //        if ( ( ( Bunch ) possibleRelative ) . _linked )
-        //        {
-        //            possibleRelative = GetLinkedBunchesByBunch ( ( Bunch ) possibleRelative );
-        //            entryInFirstParam = ( ( LinkedBunches ) possibleRelative ) . _closestToAncestor . _highest . _top;
-        //        }
-        //    }
-        //    else
-        //    {
-        //        possibleRelative = circuitPresentsPossibleRelative;
-        //        entryInFirstParam = circuitPresentsPossibleRelative . _top;
-        //    }
-        //}
-
-
-        //private LinkedBunches GetLinkedBunchesByBunch ( Bunch possibleMember )
-        //{
-        //    LinkedBunches result = null;
-
-        //    for( var i = 0;    i < _linkedBunches . Count;    i++ )
-        //    {
-        //        if ( _linkedBunches [ i ] . ContainsBunch ( possibleMember ) )
-        //        {
-        //            result = _linkedBunches [ i ];
-        //        }
-        //    }
-
-        //    return result;
-        //}
-
-
-        //private void ConductRelationUntillRelativeIsRenderedOrAbsents ( List<IGenderRelative> leaves, IGenderRelative possibleDescendant, ParamNode nodeBetweenRelatives )
-        //{
-        //    while ( true )
-        //    {
-        //        if ( leaves . Contains ( possibleDescendant ) )
-        //        {
-        //            leaves . Remove ( possibleDescendant );
-        //            break;
-        //        }
-                
-        //        if ( possibleDescendant . _renderedOnRelation )
-        //        {
-        //            break;
-        //        }
-
-        //        nodeBetweenRelatives = nodeBetweenRelatives . _parent;
-        //        var rootIsAchieved = ( nodeBetweenRelatives == null );
-
-        //        if ( rootIsAchieved )
-        //        {
-        //            possibleDescendant . _renderedOnRelation = true;
-        //            break;
-        //        }
-
-        //        SetUpAncestorIfItFound ( nodeBetweenRelatives , possibleDescendant );
-        //    }
-        //}
-
-
-        //private void SetUpAncestorIfItFound ( ParamNode nodeBetweenRelatives ,  IGenderRelative possibleDescendant )
-        //{
-        //    IGenderRelative ancestor = null;
-
-        //    if ( _nodeToCircuits . ContainsKey ( nodeBetweenRelatives ) )
-        //    {
-        //        var nodeInAncestor = nodeBetweenRelatives;
-        //        var presentingAncestorCircuit = _nodeToCircuits [ nodeInAncestor ] [ 0 ];
-        //        var accomplishedDescendant = possibleDescendant;
-        //        FixRelative ( presentingAncestorCircuit , ancestor , nodeInAncestor );
-        //        ancestor . AddChild ( accomplishedDescendant );
-        //        accomplishedDescendant . SetParent ( ancestor );
-        //        accomplishedDescendant . _renderedOnRelation = true;
-        //        possibleDescendant = ancestor;
-        //    }
-        //    else
-        //    {
-        //        possibleDescendant . AddToWayToParent ( nodeBetweenRelatives );
-        //    }
-        //}
-
 
     }
 }

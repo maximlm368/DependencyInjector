@@ -216,7 +216,6 @@ namespace DependencyInjector
                 var presentingAncestorCircuit = _nodeToCircuits [ thatAchievedAncestor ] [ 0 ];
                 var accomplishedDescendant = possibleDescendant;
                 SetUpRelative ( presentingAncestorCircuit , ancestor , thatAchievedAncestor );
-                //ancestor . AddChild ( accomplishedDescendant );
                 accomplishedDescendant . SetClosestAncestor ( ancestor );
                 accomplishedDescendant . _renderedOnRelation = true;
                 possibleDescendant = ancestor;

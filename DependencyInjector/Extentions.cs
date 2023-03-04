@@ -97,9 +97,6 @@ namespace DependencyInjector
         }
 
 
-
-
-
         public static bool ContainsItemWithParticularPart <T1,T2> ( this List<T1> list , T2 wantedPart , Func<T1,T2> partExtracter )
         {
             var result = false;
@@ -162,6 +159,40 @@ namespace DependencyInjector
         }
 
 
+        /// <summary>
+        /// returns ordinal number of item that accords to feature if it exists else -1;  
+        /// </summary>
+        /// <typeparam name="T1"></typeparam>
+        /// <typeparam name="T2"></typeparam>
+        /// <param name="list"></param>
+        /// <param name="feature"></param>
+        /// <param name="scratch"></param>
+        /// <param name="coincidenceChecker"></param>
+        /// <returns></returns>
+        public static int FindFromScratchItemAccordsFeature <T1, T2> ( this List<T1> list , T2 feature , int scratch , Func<T1,T2,bool> coincidenceChecker )
+        {
+            for ( var i = scratch;    i < list . Count;    i++ )
+            {
+                if ( coincidenceChecker ( list [ i ] , feature ) )
+                {
+                    return i;
+                }
+            }
+
+            return -1;
+        }
+
+
+        public static void Exchange <T1> ( this List<T1> list, int firstNumber, int secondNumber )
+        {
+            var first = list [ firstNumber ];
+            var second = list [ secondNumber ];
+
+            list [ firstNumber ] = second;
+            list [ secondNumber ] = first;
+        }
+
+
         public static List<List<T>> GroupByDelegateResult <T> ( this List<T> list , Func<T,string> groupingDefiner )
         {
             var result = new List<List<T>> ( );
@@ -184,27 +215,6 @@ namespace DependencyInjector
         }
 
 
-        //public static bool AllItemsCoincideBySomePart <T1, T2> ( this List<T1> list , Func<T1,T2> partDefiner )
-        //{
-        //    var result = true;
-
-        //    if ( list != null   &&   list . Count > 0 )
-        //    {
-        //        var somePart = partDefiner ( list [ 0 ] );
-
-        //        for ( var j = 1;   j < list . Count;   j++ )
-        //        {
-        //            if ( !somePart . Equals ( partDefiner ( list [ j ] ) ) )
-        //            {
-        //                result = false;
-        //                break;
-        //            }
-        //        }
-        //    }
-        //    return result;
-        //}
-
-
         public static bool AllItemsContainParticularPart <T1, T2> ( this List<T1> list , T2 somePart , Func<T1,T2> partDefiner )
         {
             var result = true;
@@ -224,15 +234,15 @@ namespace DependencyInjector
         }
 
 
-        public static List<T> CutOffSubListByTemplate <T> ( this List<T> list , T cutItem , Func<T,T,bool> comparer )
+        public static List<T> CutOffSubListByAccordanceWithTemplate <T> ( this List<T> list , T template , Func<T,T,bool> comparer )
         {
             var result = new List<T> ( );
 
-            if ( list != null   &&   cutItem != null )
+            if ( list != null   &&   template != null )
             {
                 for ( var j = list . Count - 1;   j >= 0;   j-- )
                 {
-                    if ( comparer ( list [ j ] , cutItem ) )
+                    if ( comparer ( list [ j ] , template ) )
                     {
                         list . RemoveAt ( j );
                         result . Add ( list [ j ] );
@@ -296,17 +306,6 @@ namespace DependencyInjector
         }
 
 
-        //public static List<T> Clone<T> ( this List<T> list )
-        //{
-        //    var result = new List<T> ( );
-
-        //    for ( var i = 0; i < list . Count; i++ )
-        //    {
-        //        result . Add ( list [ i ] );
-        //    }
-        //    return result;
-        //}
-
 
         public static List<int> GetListAsSiquenceFromZeroToNumber ( int number )
         {
@@ -318,33 +317,6 @@ namespace DependencyInjector
             }
             return result;
         }
-
-
-        //public static List<T> DistinctList<T> ( this List<T> rawList )
-        //{
-        //    var result = new List<T> ( );
-
-        //    for ( var i = 0; i < rawList . Count; i++ )
-        //    {
-        //        bool ok = false;
-
-        //        for ( var j = 0; j < result . Count; j++ )
-        //        {
-        //            if ( rawList [ i ] . Equals ( result [ j ] ) )
-        //            {
-        //                ok = true;
-        //                break;
-        //            }
-        //        }
-
-        //        if ( !ok )
-        //        {
-        //            result . Add ( rawList [ i ] );
-        //        }
-        //    }
-
-        //    return result;
-        //}
 
 
         public static List<List<T>> MakeMatrixWithDistinctColumn <T> ( this List<List<T>> rawList , int fieldNumber )
@@ -371,28 +343,6 @@ namespace DependencyInjector
             }
             return result;
         }
-
-
-        //public static List<List<T>> Convert_List_List_to_List_Array<T> ( this List<T [ ]> la )     // translates List<List<string>> to List<string[]>
-        //{
-        //    var ll = new List<List<T>> ( );
-        //    for ( var i = 0; i < la . Count; i++ )
-        //    { var l = new List<T> ( ); for ( var j = 0; j < la [ i ] . Length; j++ ) { l . Add ( la [ i ] [ j ] ); } ll . Add ( l ); }
-        //    return ll;
-        //}
-
-
-        //public static List<T> ConvertArrayToList<T> ( T [ ] array )
-        //{
-        //    var result = new List<T> ( );
-            
-        //    for ( var i = 0; i < array . Length; i++ )
-        //    {
-        //        result . Add ( array [ i ] ); 
-        //    }
-        //    return result;
-        //}
-
 
 
         public static List<T> GetColumnFromListOfList<T> ( this List<List<T>> source , int columneNumber )

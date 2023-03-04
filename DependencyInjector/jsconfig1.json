@@ -3,6 +3,21 @@
     "Items": [
       {
         "abstractionFullName": "DependencyInjector.ISomeInterface",
+        "implimentationFullName": "DependencyInjector.SomeClass",
+        "ordinalNumberCountingFromLeftToRightFromRootAsZeroInDependencyTree": "3"
+      },
+      {
+        "abstractionFullName": "DependencyInjector.IAnotherSomeInterface",
+        "implimentationFullName": "DependencyInjector.AnotherSomeClass",
+        "ordinalNumberCountingFromLeftToRightFromRootAsZeroInDependencyTree": "34"
+      }
+    ]
+  },
+
+  "CommonImplimentations": {
+    "Items": [
+      {
+        "abstractionFullName": "DependencyInjector.ISomeInterface",
         "implimentationFullName": "DependencyInjector.SomeClass"
       },
       {
@@ -58,6 +73,8 @@
       }
     ]
 
-  }
+  },
+
+  "AttributeName": "iuiu"
 
 }

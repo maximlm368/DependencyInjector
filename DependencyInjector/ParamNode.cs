@@ -6,8 +6,6 @@ using System . Reflection;
 
 namespace DependencyInjector
 {
-
-
     class ParamNode
     {
         private static int _idCounter = 0;
@@ -15,6 +13,8 @@ namespace DependencyInjector
         private int _ordinalNumberInParentCtor;
 
         private List<ParamNode> _children;
+
+        private List<ParamNode> _temporarilyNotInitializedChildren;
 
         private NodeType _nodeType;
 
@@ -36,26 +36,30 @@ namespace DependencyInjector
         #region Ctors
         public ParamNode ( Type typeOfNested , NodeType nodeType )
         {
-            _id = _idCounter;
-            _idCounter++;
-            _nestedObj = new NestedObject ( typeOfNested, _id );
+            DryCtorPart ( typeOfNested , nodeType );
             _ordinalNumberInParentCtor = 0;
             _myLevelInTree = 0;
-            _nodeType = nodeType;
-            _isInitialized = false;
         }
 
 
         public ParamNode ( Type typeOfNested , int ordinalNumberInParentCtorParams , ParamNode parent , NodeType nodeType )
         {
-            _id = _idCounter;
-            _idCounter++;
-            _nestedObj = new NestedObject ( typeOfNested, _id );
+            DryCtorPart ( typeOfNested , nodeType );
             _ordinalNumberInParentCtor = ordinalNumberInParentCtorParams;
             _parent = parent;
             _myLevelInTree = parent . _myLevelInTree + 1;
+        }
+
+
+        private void DryCtorPart ( Type typeOfNested , NodeType nodeType )
+        {
+            _id = _idCounter;
+            _idCounter++;
+            _nestedObj = new NestedObject ( typeOfNested , _id );
+            _temporarilyNotInitializedChildren = new List<ParamNode> ( );
             _nodeType = nodeType;
             _isInitialized = false;
+            _children = new List<ParamNode> ( );
         }
         #endregion Ctors
 
@@ -139,7 +143,7 @@ namespace DependencyInjector
         public void InitializePassingOverAbsentParams ( )
         {
             var readyParamObjects = new List<object> ( );
-            var without = new List<Type> ( );
+            var typesOfNotInitializedChildren = new List<Type> ( );
 
             for ( var i = 0;    i < _children . Count;    i++ )
             {
@@ -149,7 +153,8 @@ namespace DependencyInjector
                 if ( childNotInitialized    &&    childIsDependencyCycleParticipant )
                 {
                     var childType = _children [ i ] . _nestedObj . _typeOfObject;
-                    without . Add ( childType );
+                    _temporarilyNotInitializedChildren . Add ( _children [ i ] );
+                    typesOfNotInitializedChildren . Add ( childType );
                     continue;
                 }
 
@@ -162,7 +167,7 @@ namespace DependencyInjector
                 readyParamObjects . Add ( readyParam );
             }
 
-            _nestedObj . InitializeYourSelfWithoutSomeParams ( readyParamObjects . ToArray ( ) , without );
+            _nestedObj . InitializeYourSelfWithoutSomeParams ( readyParamObjects . ToArray ( ) , typesOfNotInitializedChildren );
         }
 
 
@@ -191,9 +196,11 @@ namespace DependencyInjector
 
         public void InitializeNestedObject ( ParamNode template )
         {
-            if ( !_isInitialized )
+            var argNullMessage = "arg 'template' cant be null";
+
+            if ( ! _isInitialized )
             {
-                _initializingTemplate = template ?? throw new Exception ( )
+                _initializingTemplate = template ?? throw new ArgumentNullException ( argNullMessage );
                 InitializeNestedObject ( );
             }
         }
@@ -205,6 +212,7 @@ namespace DependencyInjector
         {
             var childTypes = _nestedObj . GetCtorParamTypes ( );
             var result = _nodeType . DefineChildren ( this , childTypes );
+            _children.AddRange ( result );
             return result;
         }
 
@@ -251,6 +259,25 @@ namespace DependencyInjector
         public NodeKind GetNodeKind ()
         {
             return _nodeType . _kind;
+        }
+
+
+
+
+        public void EndUpIinitialization ( )
+        {
+            var mustBeInitializedAlreadyChildren = _temporarilyNotInitializedChildren;
+
+            for ( int i = 0;    i < mustBeInitializedAlreadyChildren . Count;     i++ )
+            {
+                if ( ! mustBeInitializedAlreadyChildren [ i ] . _isInitialized )
+                {
+                    return;
+                }
+            }
+
+            var arguments = mustBeInitializedAlreadyChildren . GetListOfItemPiece ( ( item ) => { return item . _nestedObj . _objectItself; } );
+            _nestedObj . EndUpIinitialization ( arguments );
         }
 
     }

@@ -12,38 +12,102 @@ namespace DependencyInjector
 
         private string _configFilePath;
 
+        private string _attributeSection;
+
 
         public ResolverByConfigFile ( )
         {
             _configFilePath = "jsconfig1.json";
+            _attributeSection = "AttributeName";
             var builder = new ConfigurationBuilder ( );
             builder . AddJsonFile ( _configFilePath );
             _configRoot = builder . Build ( );
         }
 
 
-        public string GetImplimentationNameByAbstraction ( string abstractionFullName )
+        public string GetImplimentationNameByAbstraction ( string abstractionFullName , int nodeOrdinalNumber )
+        {
+            var implimentationName = GetImplimentationName ( abstractionFullName , nodeOrdinalNumber );
+
+            if ( implimentationName . Length == 0 )
+            {
+                implimentationName = GetCommonImplimentationName ( abstractionFullName );
+            }
+
+            if ( implimentationName . Length == 0 )
+            {
+                throw new ConfigResolutionExeption ( abstractionFullName + " implimentation not found" );
+            }
+
+            return implimentationName;
+        }
+
+
+        private string GetImplimentationName ( string abstractionFullName , int nodeOrdinalNumber )
         {
             var implimentationName = "";
             var implimentations = _configRoot . GetSection ( "Implimentations:Items" );
 
-            foreach ( var implimentationItem   in   implimentations . GetChildren ( ) )
+            foreach ( var implimentationItem in implimentations . GetChildren ( ) )
             {
                 var fromConfigInterfaceName = implimentationItem . GetSection ( "abstractionFullName" ) . Value;
+                var abstractionNameCoincides = NamesAreEqual ( fromConfigInterfaceName , abstractionFullName );
+                var ordinalNumberAsString = implimentationItem . GetSection ( "ordinalNumberCountingFromLeftToRightFromRootAsZeroInDependencyTree" ) . Value;
+                var numberCoincides = OrdinalNumbersAreEqual ( ordinalNumberAsString , nodeOrdinalNumber , abstractionFullName );
 
-                if ( NamesAreEqual ( fromConfigInterfaceName, abstractionFullName ) )
+                if ( abstractionNameCoincides    &&    numberCoincides )
                 {
                     implimentationName = implimentationItem . GetSection ( "implimentationFullName" ) . Value;
                     break;
                 }
             }
 
-            if ( implimentationName . Length == 0 )
+            return implimentationName;
+        }
+
+
+        private string GetCommonImplimentationName ( string abstractionFullName )
+        {
+            var implimentationName = "";
+            var implimentations = _configRoot . GetSection ( "CommonImplimentations:Items" );
+
+            foreach ( var implimentationItem in implimentations . GetChildren ( ) )
             {
-                throw new ImplimentationNotFoundExeption ( abstractionFullName + " implimentation not found" );
+                var fromConfigInterfaceName = implimentationItem . GetSection ( "abstractionFullName" ) . Value;
+                var abstractionNameCoincides = NamesAreEqual ( fromConfigInterfaceName , abstractionFullName );
+
+                if ( abstractionNameCoincides )
+                {
+                    implimentationName = implimentationItem . GetSection ( "implimentationFullName" ) . Value;
+                    break;
+                }
             }
 
             return implimentationName;
+        }
+
+
+        private bool OrdinalNumbersAreEqual ( string ordinalNumberAsString , int ordinalNumber , string abstractionFullName )
+        {
+            var equal = false;
+            var expMessage = "section with " + abstractionFullName + " in config file has incorrect value of "
+                                                    + " 'ordinalNumberCountingFromLeftToRightFromRootAsZeroInDependencyTree' ";
+
+            try
+            {
+                var configOrdinalNumber = Int32 . Parse ( ordinalNumberAsString );
+
+                if( configOrdinalNumber == ordinalNumber )
+                {
+                    equal = true;
+                }
+            }
+            catch ( FormatException )
+            {
+                throw new ConfigResolutionExeption ( expMessage );
+            }
+
+            return equal;
         }
 
 
@@ -68,7 +132,7 @@ namespace DependencyInjector
 
             if ( ! valueSections . Exists ( ) )
             {
-                throw new ImplimentationNotFoundExeption ( _configFilePath + " does not include type params for " + genericType . FullName );
+                throw new ConfigResolutionExeption ( _configFilePath + " does not include type params for " + genericType . FullName );
             }
 
             foreach ( var typeParam    in   valueSections . GetChildren ( ) )
@@ -106,7 +170,7 @@ namespace DependencyInjector
 
             if ( simpleValue == null )
             {
-                throw new ImplimentationNotFoundExeption ( 
+                throw new ConfigResolutionExeption ( 
                                                            _configFilePath + " does not include type params for " + parentType . FullName + " with " +
                                                            ordinalNumberAmongCtorParams + " number of param and type of param " + targetType . FullName  
                                                          );
@@ -144,15 +208,56 @@ namespace DependencyInjector
         }
 
 
+        /// <summary>
+        /// ggjgjgjvlvhj
+        /// </summary>
+        /// <returns>iuhyuhluhpu</returns>
+        public string GetAttributeName ()
+        {
+            var attributeName = "";
+            var attributeNameSection = _configRoot . GetSection ( _attributeSection );
+            
+            ContinueIfSectionExists ( attributeNameSection );
+            attributeName = attributeNameSection . Value;
+            var exeptionMessage = _attributeSection + " must have value that presents full name of class of attribute";
+
+            var attributeNameIsEmpty = attributeName . Length == 0;
+
+            if ( attributeNameIsEmpty )
+            {  
+                throw new ConfigResolutionExeption ( exeptionMessage );
+            }
+
+            var isNotFullName = ! attributeName . Contains ( "." );
+
+            if( isNotFullName )
+            {
+                throw new ConfigResolutionExeption ( exeptionMessage );
+            }
+
+            return attributeName;
+        }
+        
+
+        private void ContinueIfSectionExists ( IConfigurationSection section )
+        {
+            if ( ! section . Exists ( ) )
+            {
+                var exeptionMessage = _attributeSection + " section absent in configfile";
+                throw new ConfigResolutionExeption ( exeptionMessage );
+            }
+        }
+
+
     }
 
 
 
-    class ImplimentationNotFoundExeption : Exception 
+    class ConfigResolutionExeption : Exception 
     {
          public override string Message { get; }
 
-         public ImplimentationNotFoundExeption ( string message )
+         public ConfigResolutionExeption ( string message )
          {
             Message = message;
          }

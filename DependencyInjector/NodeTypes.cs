@@ -89,11 +89,11 @@ namespace DependencyInjector
         public override void InitializeNested ( ParamNode becomingInitialized )
         {
             Performer performer = becomingInitialized . InitializeOrdinary;
-            Initialize ( becomingInitialized , performer );
+            Initialize ( performer );
         }
 
 
-        protected void Initialize ( ParamNode becomingInitialized , Performer performer)
+        protected void Initialize ( Performer performer)
         {
             if ( _ordinaryChildrenMustBeInitializedAlready )
             {
@@ -117,7 +117,7 @@ namespace DependencyInjector
         public override void InitializeNested ( ParamNode becomingInitialized )
         {
             Performer performer = becomingInitialized . InitializePassingOverAbsentParams;
-            base. Initialize ( becomingInitialized , performer );
+            base. Initialize ( performer );
         }
     }
 
@@ -131,7 +131,7 @@ namespace DependencyInjector
         public override void InitializeNested ( ParamNode becomingInitialized )
         {
             Performer performer = becomingInitialized . InitializeByTemplate;
-            base . Initialize ( becomingInitialized , performer );
+            base . Initialize ( performer );
         }
     }
 
