@@ -217,7 +217,7 @@ namespace DependencyInjector
             var attributeName = "";
             var attributeNameSection = _configRoot . GetSection ( _attributeSection );
             
-            ContinueIfSectionExists ( attributeNameSection );
+            ThrowExeptionIfSectionDoesNotExist ( attributeNameSection );
             attributeName = attributeNameSection . Value;
             var exeptionMessage = _attributeSection + " must have value that presents full name of class of attribute";
 
@@ -239,7 +239,7 @@ namespace DependencyInjector
         }
         
 
-        private void ContinueIfSectionExists ( IConfigurationSection section )
+        private void ThrowExeptionIfSectionDoesNotExist ( IConfigurationSection section )
         {
             if ( ! section . Exists ( ) )
             {
