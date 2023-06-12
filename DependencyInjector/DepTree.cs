@@ -30,15 +30,14 @@ namespace DependencyInjector
         public DependencyTree ( Type rootType )
         {
             _root = new ParamNode ( rootType , new OrdinaryNode ( ) );
-            _nodes = new List<ParamNode> ( );
-            _nodes . Add ( _root );
+            _nodes = new List<ParamNode> { _root };
             _bunches = new List<Bunch> ( );
             _nodeToCircuits = new Dictionary<ParamNode , List<DependencyCircuit>> ( );
             _circuitsToBunch = new Dictionary<List<DependencyCircuit> , Bunch> ( new CircuitListComparer ( ) );
         }
 
 
-        public object BuildRootObject ( )
+        public object BuildAimObject ( )
         {
             BuildYourself ( );
             InitializeNodes ( );
@@ -97,8 +96,8 @@ namespace DependencyInjector
 
         private void BuildYourself ( )
         {
-            var currentLevel = new List<ParamNode> ( );
-            currentLevel . Add ( _root );
+            var levelNodes = new List<ParamNode> ( );
+            levelNodes . Add ( _root );
             int levelCounter = 0;
 
             while ( true )
@@ -106,9 +105,9 @@ namespace DependencyInjector
                 var childLevel = new List<ParamNode> ( );
                 levelCounter++;
 
-                for ( var i = 0;   i < currentLevel . Count;   i++ )
+                for ( var i = 0;   i < levelNodes . Count;   i++ )
                 {
-                    var beingProcessedNode = currentLevel [ i ];
+                    var beingProcessedNode = levelNodes [ i ];
                     var children = beingProcessedNode . DefineChildren ( );
                     GatherExistingCircuits ( children );
                     childLevel . AddRange ( children );
@@ -120,7 +119,7 @@ namespace DependencyInjector
                     break;
                 }
 
-                currentLevel = childLevel;
+                levelNodes = childLevel;
                 _deepestLevel = levelCounter;
             }
         }
@@ -164,7 +163,11 @@ namespace DependencyInjector
 
                 possibleCircuit . AccomplishForEachExceptSome<ParamNode>
                 (
-                   ( item ) => { if ( item . GetNodeKind ( )  !=  NodeKind . DependencyCycleParticipant ) { item . ChangeState ( NodeKind . DependencyCycleParticipant ); } }
+                   ( item ) => 
+                   { 
+                     if ( item . GetNodeKind ( )  !=  NodeKind . DependencyCycleParticipant ) 
+                     { item . ChangeState ( NodeKind . DependencyCycleParticipant ); } 
+                   }
                    ,border
                 );
 

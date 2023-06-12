@@ -108,7 +108,7 @@ namespace DependencyInjector
 
         public void InitializeYourSelf ( object [ ] ctorParams )
         {
-            GetCtor ( );
+            SetCtor ( );
             _objectItself = _ctor . Invoke ( ctorParams );
             _isInitialized = true;
         }
@@ -193,13 +193,13 @@ namespace DependencyInjector
         private ParameterInfo [ ] GetCtorParamInfos ( )
         {
             ParameterInfo [ ] paramInfos = null;
-            GetCtor ( );
+            SetCtor ( );
             paramInfos = _ctor . GetParameters ( );
             return paramInfos;
         }
 
 
-        private void GetCtor ()
+        private void SetCtor ()
         {
             if ( _ctor == null )
             {
