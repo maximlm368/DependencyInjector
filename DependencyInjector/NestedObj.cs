@@ -7,10 +7,11 @@ using System . Reflection;
 using System . Diagnostics;
 
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     /// <summary>
-    /// dgfgfgddfgd
+    /// Represent object, its state and its type inside ParamNode 
+    /// needed for parent ctor 
     /// </summary>
     class NestedObject
     {
@@ -22,14 +23,14 @@ namespace DependencyInjector
 
         private List<Type> _temporarilyAbsentParamsOfCtor;
 
-        public Type _typeOfObject { get; private set; }
+        internal Type _typeOfObject { get; private set; }
 
-        public object _objectItself { get; private set; }
+        internal object _objectItself { get; private set; }
 
-        public bool _isInitialized { get; private set; }
+        internal bool _isInitialized { get; private set; }
 
 
-        public NestedObject ( Type nestedType,  int nestingNodeOrdinalNumberInTree )
+        internal NestedObject ( Type nestedType,  int nestingNodeOrdinalNumberInTree )
         {
             var method = MethodInfo . GetCurrentMethod ( );
             var currentTypeName = method . ReflectedType . Name;
@@ -40,7 +41,7 @@ namespace DependencyInjector
             _typeOfObject = nestedType ?? throw new ArgumentNullException ( currentTypeName + dot + currentMethodName + messageSense );
             _nestingNodeOrdinalNumberInTree = nestingNodeOrdinalNumberInTree;
             _isInitialized = false;
-            _abstractionResolver = new ResolverByConfigFile ( );
+            _abstractionResolver = AbstractionResolver.GetConfigResolver ( );
             ReplaceAbstractionByImplimentation ( );
             MakeGenericTypeViaConfig ( );
         }
@@ -86,7 +87,7 @@ namespace DependencyInjector
 
         #region Initialize
         
-        public void InitializeYourSelf ( object templateForSubstitution )
+        internal void InitializeYourSelf ( object templateForSubstitution )
         {
             var method = MethodInfo . GetCurrentMethod ( );
             var currentTypeName = method . ReflectedType . Name;
@@ -99,14 +100,14 @@ namespace DependencyInjector
         }
 
 
-        public void InitializeYourSelf ( Type parentType , int ordinalNumberAmongCtorParams )
+        internal void InitializeYourSelf ( Type parentType , int ordinalNumberAmongCtorParams )
         {
             _objectItself = _abstractionResolver . GetValueOfSimpleParam ( parentType , ordinalNumberAmongCtorParams , _typeOfObject );
             _isInitialized = true;
         }
 
 
-        public void InitializeYourSelf ( object [ ] ctorParams )
+        internal void InitializeYourSelf ( object [ ] ctorParams )
         {
             SetCtor ( );
             _objectItself = _ctor . Invoke ( ctorParams );
@@ -114,7 +115,7 @@ namespace DependencyInjector
         }
 
 
-        public void InitializeYourSelfWithoutSomeParams ( object [ ] presentCtorParams , List <Type> without )
+        internal void InitializeYourSelfWithoutSomeParams ( object [ ] presentCtorParams , List <Type> without )
         {
             var method = MethodInfo . GetCurrentMethod ( );
             var currentTypeName = method . ReflectedType . Name;
@@ -128,9 +129,11 @@ namespace DependencyInjector
             }
 
             var namesOfTypesOfParams = GetNamesOfTypesOfObjects ( presentCtorParams );
-            var messageForUser = _typeOfObject . FullName + " must have constructor with params that have types (considering order) : " + namesOfTypesOfParams;
+            var messageForUser = _typeOfObject . FullName + " must have constructor with params that have types (considering order) : " 
+                                                                                                                        + namesOfTypesOfParams;
 
-            _temporarilyAbsentParamsOfCtor = without ?? throw new ArgumentNullException ( currentTypeName + dot + currentMethodName + messageSense + " 'without'" );
+            _temporarilyAbsentParamsOfCtor = without ?? throw new ArgumentNullException ( currentTypeName + dot + currentMethodName + messageSense 
+                                                                                                                                     + " 'without'" );
 
             try
             {       
@@ -170,7 +173,7 @@ namespace DependencyInjector
         # endregion Initialize
 
 
-        public List<Type> GetCtorParamTypes ( )
+        internal List<Type> GetCtorParamTypes ( )
         {
             var result = new List<Type> ( );
             var paramInfos = GetCtorParamInfos ( );
@@ -224,17 +227,17 @@ namespace DependencyInjector
         }
 
 
-        public string GetObjectTypeName ( )
+        internal string GetObjectTypeName ( )
         {
             return _typeOfObject . FullName;
         }
 
 
-        public void EndUpIinitialization ( List<object> arguments )
+        internal void EndUpIinitialization ( List<object> arguments )
         {
             string attributeName;
-            var resolver = new ResolverByConfigFile ( );
-            attributeName = resolver . GetAttributeName ( );
+            var resolver = AbstractionResolver.GetConfigResolver ( );
+            attributeName = AbstractionResolver.GetAttributeName ( );
             var methods = _typeOfObject . GetMethods ( );
 
             for( var i = 0;    i < methods.Length;    i++ )
@@ -248,6 +251,7 @@ namespace DependencyInjector
                     var methName = _typeOfObject . FullName + "." + targetMeth . Name;
                     CheckAccordanceOfArguments ( paramInfos , methName , arguments );
                     targetMeth . Invoke ( _objectItself ,   arguments . ToArray ( ) );
+                    break;
                 }
             }
         }
@@ -260,7 +264,7 @@ namespace DependencyInjector
 
             if ( wrongMethodIsSuggested )
             {
-                var message = "Attempt to pass on a set of args with uncorrect length to " + methName;
+                var message = "There is attempt to pass on a set of args with uncorrect length to " + methName;
                 throw new ConfigResolutionExeption ( message );
             }
 
@@ -270,7 +274,7 @@ namespace DependencyInjector
 
                 if ( typesDoesntContainsOneFromInfos ) 
                 {
-                    var message = "Attempt to pass on a set of args with uncorrect types to " + methName;
+                    var message = "There is attempt to pass on a set of args with uncorrect types to " + methName;
                     throw new ConfigResolutionExeption ( message );
                 }
             }

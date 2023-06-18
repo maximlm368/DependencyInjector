@@ -4,7 +4,7 @@ using System . Linq;
 using System . Text;
 using System . Reflection;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     class RelationsArranger
     {
@@ -19,7 +19,7 @@ namespace DependencyInjector
         private List<LinkedBunches> _linkedBunches;
 
 
-        public RelationsArranger ( List<DependencyCircuit> circuits ,      Dictionary<ParamNode, List<DependencyCircuit>> nodeToCircuits ,
+        internal RelationsArranger ( List<DependencyCircuit> circuits ,      Dictionary<ParamNode, List<DependencyCircuit>> nodeToCircuits ,
                                    Dictionary<List<DependencyCircuit>, Bunch> circuitsToBunch,       List<LinkedBunches> linkedBunches )
         {
             var firstParamName = this . GetCtorParamName ( 0 , 0 );
@@ -33,7 +33,7 @@ namespace DependencyInjector
         }
 
 
-        public List<CompoundRelative> ArrangeRelations ( )
+        internal List<CompoundRelative> ArrangeRelations ( )
         {
             var descendantLesses = new List<CompoundRelative> ( );
 
@@ -49,7 +49,11 @@ namespace DependencyInjector
                 }
 
                 descendantLesses . Add ( possibleDescendantPresentedByCurrentCircuit );
-                ConductRelationUntillAncestorIsRenderedOrAbsent ( descendantLesses , possibleDescendantPresentedByCurrentCircuit , closestToAncestorInPossibleDescendant );
+                ConductRelationUntillAncestorIsRenderedOrAbsent ( 
+                                                                 descendantLesses , 
+                                                                 possibleDescendantPresentedByCurrentCircuit , 
+                                                                 closestToAncestorInPossibleDescendant 
+                                                                 );
             }
 
             return descendantLesses;

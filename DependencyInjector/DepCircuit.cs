@@ -4,7 +4,7 @@ using System . Linq;
 using System . Text;
 using System . Reflection;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     class DependencyCircuit : CompoundRelative
     {
@@ -18,18 +18,18 @@ namespace DependencyInjector
 
         private List<ParamNode> _nodeChain;
 
-        public int _id { get; private set; }
+        internal int _id { get; private set; }
 
-        public ParamNode _top { get; private set; }
+        internal ParamNode _top { get; private set; }
 
-        public ParamNode _bottomCoincidesTop { get; private set; }
+        internal ParamNode _bottomCoincidesTop { get; private set; }
 
-        public override bool _renderedOnRelation { get; set; }
+        internal override bool _renderedOnRelation { get; set; }
 
-        public bool _isBunched { get; set; }
+        internal bool _isBunched { get; set; }
         
 
-        public DependencyCircuit ( List<ParamNode> nodes )
+        internal DependencyCircuit ( List<ParamNode> nodes )
         {
             var argIsIncorrect = "arg 'nodes' as list must have more then two items";
 
@@ -82,7 +82,7 @@ namespace DependencyInjector
         }
 
 
-        public bool HasThisTop ( ParamNode possibleTop )
+        internal bool HasThisTop ( ParamNode possibleTop )
         {
             if( object . ReferenceEquals ( _top , possibleTop ) )
             {
@@ -93,25 +93,25 @@ namespace DependencyInjector
         }
 
 
-        public ParamNode GetNearestOrdinaryAncestor ()
+        internal ParamNode GetNearestOrdinaryAncestor ()
         {
             return _top . GetNearestOrdinaryAncestor ( );
         }
 
 
-        public ParamNode GetNodeByIndex ( int index )
+        internal ParamNode GetNodeByIndex ( int index )
         {
             return _nodeChain [ index ];
         }
 
 
-        public int GetLenght ()
+        internal int GetLenght ()
         {
             return _nodeChain . Count;
         }
 
 
-        public int GetNodeIndex ( ParamNode beingProcessed )
+        internal int GetNodeIndex ( ParamNode beingProcessed )
         {
             var result = _nodeChain . IndexOf ( beingProcessed );
 
@@ -124,7 +124,7 @@ namespace DependencyInjector
         }
 
 
-        public override void Resolve ( )
+        internal override void Resolve ( )
         {
             if( ! _isResolved )
             {
@@ -162,7 +162,7 @@ namespace DependencyInjector
         }
 
 
-        public void Prepare ( )
+        internal void Prepare ( )
         {
             if ( ! _isPrepared )
             {

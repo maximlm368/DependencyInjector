@@ -3,7 +3,7 @@ using System . Collections . Generic;
 using System . Reflection;
 using System . Text;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     class Bunch : CompoundRelative
     {
@@ -17,16 +17,16 @@ namespace DependencyInjector
 
         private bool _isPrepared = false;
         
-        public DependencyCircuit _highest { get; private set; }
+        internal DependencyCircuit _highest { get; private set; }
 
-        public ParamNode _highestNode { get; private set; }
+        internal ParamNode _highestNode { get; private set; }
 
-        public override bool _renderedOnRelation { get; set; }
+        internal override bool _renderedOnRelation { get; set; }
 
-        public bool _linked { get; set; }
+        internal bool _linked { get; set; }
 
 
-        public Bunch ( List<DependencyCircuit> circuits )
+        internal Bunch ( List<DependencyCircuit> circuits )
         {
             var method = MethodInfo . GetCurrentMethod ( );
             var currentTypeName = method . ReflectedType . Name;
@@ -58,7 +58,7 @@ namespace DependencyInjector
         }
 
 
-        public List <DependencyCircuit> GetBunchedCircuits ()
+        internal List <DependencyCircuit> GetBunchedCircuits ()
         {
             return _bunchedCircuits . Clone ( );
         }
@@ -70,9 +70,9 @@ namespace DependencyInjector
             {
                 _highest = _bunchedCircuits [ 0 ];
 
-                for ( var i = 1; i < _bunchedCircuits . Count; i++ )
+                for ( var i = 1;   i < _bunchedCircuits.Count;   i++ )
                 {
-                    var heigherThanPrivious = ( _bunchedCircuits [ i ] . _top . _myLevelInTree )   >   ( _bunchedCircuits [ i - 1 ] . _top . _myLevelInTree );
+                    var heigherThanPrivious = ( _bunchedCircuits [ i ]._top . _myLevelInTree )   >   ( _bunchedCircuits [ i - 1 ]._top . _myLevelInTree );
 
                     if ( heigherThanPrivious )
                     {
@@ -91,9 +91,9 @@ namespace DependencyInjector
             {
                 _lowest = _bunchedCircuits [ 0 ];
 
-                for ( var i = 1; i < _bunchedCircuits . Count; i++ )
+                for ( var i = 1;   i < _bunchedCircuits.Count;   i++ )
                 {
-                    var lowerThanPrevious = ( _bunchedCircuits [ i ] . _top . _myLevelInTree )   <   ( _bunchedCircuits [ i - 1 ] . _top . _myLevelInTree );
+                    var lowerThanPrevious = ( _bunchedCircuits [ i ]._top . _myLevelInTree )   <   ( _bunchedCircuits [ i - 1 ]._top . _myLevelInTree );
 
                     if ( lowerThanPrevious )
                     {
@@ -114,7 +114,7 @@ namespace DependencyInjector
         }
 
 
-        public override void Resolve ( )
+        internal override void Resolve ( )
         {
             if( ! _isResolved )
             {
@@ -131,7 +131,7 @@ namespace DependencyInjector
         }
 
 
-        public void Prepare ( )
+        internal void Prepare ( )
         {
             if ( ! _isPrepared )
             {
@@ -142,14 +142,14 @@ namespace DependencyInjector
                 {
                     var circuitsWithThisTop = FindOwnersOfTop ( beingProcessedNode );
 
-                    for ( var j = 0;    j > circuitsWithThisTop . Count;    j++ )
+                    for ( var j = 0;    j > circuitsWithThisTop.Count;    j++ )
                     {
                         circuitsWithThisTop [ j ] . Prepare ( );
                     }
 
                     beingProcessedNode . InitializeNestedObject ( );
-                    var preparationEndedUp = beingProcessedNode . Equals ( _highest . _top );
-                    var linkedBunchWillContinuePreparation = beingProcessedNode . _parent . _isFork;
+                    var preparationEndedUp = beingProcessedNode.Equals ( _highest . _top );
+                    var linkedBunchWillContinuePreparation = beingProcessedNode ._parent._isFork;
 
                     if ( preparationEndedUp   ||   linkedBunchWillContinuePreparation )
                     {
@@ -157,7 +157,7 @@ namespace DependencyInjector
                         break;
                     }
 
-                    beingProcessedNode = beingProcessedNode . _parent;
+                    beingProcessedNode = beingProcessedNode._parent;
                 }
             }
         }
@@ -167,7 +167,7 @@ namespace DependencyInjector
         {
             var ownerOfTop = new List<DependencyCircuit> ( );
 
-            for ( var i = 0;    i > _bunchedCircuits . Count;    i++ )
+            for ( var i = 0;    i > _bunchedCircuits.Count;    i++ )
             {
                 if ( _bunchedCircuits [ i ] . HasThisTop ( possibleTop ) )
                 {

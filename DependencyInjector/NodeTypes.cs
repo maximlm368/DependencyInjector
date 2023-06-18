@@ -4,15 +4,15 @@ using System . Linq;
 using System . Text;
 using System . Reflection;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     abstract class NodeType
     {
-        public NodeKind _kind;
+        internal NodeKind _kind;
 
-        public abstract void InitializeNested ( ParamNode becomingInitialized );
+        internal abstract void InitializeNested ( ParamNode becomingInitialized );
 
-        public virtual List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childParamTypes )
+        internal virtual List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childParamTypes )
         {
             return new List<ParamNode> ( );
         }
@@ -22,16 +22,16 @@ namespace DependencyInjector
 
     class OrdinaryNode : NodeType
     {
-        public new NodeKind _kind = NodeKind . Ordinary;
+        internal new NodeKind _kind = NodeKind . Ordinary;
 
         
-        public override void InitializeNested ( ParamNode becomingInitialized )
+        internal override void InitializeNested ( ParamNode becomingInitialized )
         {
             becomingInitialized . InitializeOrdinary ( );
         }
 
 
-        public override List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childTypes )
+        internal override List<ParamNode> DefineChildren ( ParamNode becomingParent , List<Type> childTypes )
         {
             var resultChildren = new List<ParamNode> ( );
 
@@ -68,10 +68,9 @@ namespace DependencyInjector
 
     class SimpleLeaf : NodeType
     {
-        public new NodeKind _kind = NodeKind . SimpleLeaf;
+        internal new NodeKind _kind = NodeKind . SimpleLeaf;
 
-
-        public override void InitializeNested ( ParamNode becomingInitialized )
+        internal override void InitializeNested ( ParamNode becomingInitialized )
         {
             becomingInitialized . InitializeSimple ( );
         }
@@ -81,12 +80,12 @@ namespace DependencyInjector
 
     class DependencyCycleParticipant : NodeType
     {
-        public new NodeKind _kind = NodeKind . DependencyCycleParticipant;
+        internal new NodeKind _kind = NodeKind . DependencyCycleParticipant;
 
         private bool _ordinaryChildrenMustBeInitializedAlready = false;
 
 
-        public override void InitializeNested ( ParamNode becomingInitialized )
+        internal override void InitializeNested ( ParamNode becomingInitialized )
         {
             Performer performer = becomingInitialized . InitializeOrdinary;
             Initialize ( performer );
@@ -111,10 +110,10 @@ namespace DependencyInjector
 
     class TopOfCircuit : DependencyCycleParticipant
     {
-        public new NodeKind _kind = NodeKind . TopOfCircuit;
+        internal new NodeKind _kind = NodeKind . TopOfCircuit;
 
 
-        public override void InitializeNested ( ParamNode becomingInitialized )
+        internal override void InitializeNested ( ParamNode becomingInitialized )
         {
             Performer performer = becomingInitialized . InitializePassingOverAbsentParams;
             base. Initialize ( performer );
@@ -125,10 +124,10 @@ namespace DependencyInjector
 
     class BottomOfCircuit : DependencyCycleParticipant
     {
-        public new NodeKind _kind = NodeKind . BottomOfCircuit;
+        internal new NodeKind _kind = NodeKind . BottomOfCircuit;
 
 
-        public override void InitializeNested ( ParamNode becomingInitialized )
+        internal override void InitializeNested ( ParamNode becomingInitialized )
         {
             Performer performer = becomingInitialized . InitializeByTemplate;
             base . Initialize ( performer );

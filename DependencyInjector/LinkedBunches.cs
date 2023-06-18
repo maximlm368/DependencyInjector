@@ -1,18 +1,18 @@
 ﻿using System;
 using System . Collections . Generic;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     class LinkedBunches : CompoundRelative
     {
         private List<Bunch> _bunches { get; set; }
 
-        public Bunch _closestToAncestor { get; private set; }
+        internal Bunch _closestToAncestor { get; private set; }
 
-        public override bool _renderedOnRelation { get; set; }
+        internal override bool _renderedOnRelation { get; set; }
 
 
-        public LinkedBunches ( List<Bunch> linkedBunches )
+        internal LinkedBunches ( List<Bunch> linkedBunches )
         {
             _bunches = linkedBunches;
             _closestToAncestor = _bunches [ 0 ];
@@ -29,7 +29,7 @@ namespace DependencyInjector
         }
 
 
-        public bool ContainsBunch ( Bunch possibleMember )
+        internal bool ContainsBunch ( Bunch possibleMember )
         {
             if ( _bunches . Contains ( possibleMember ) )
             {
@@ -40,7 +40,7 @@ namespace DependencyInjector
         }
 
         
-        public override void Resolve ( )
+        internal override void Resolve ( )
         {
             for( var i = 0;    i > _bunches . Count;    i++ )
             {

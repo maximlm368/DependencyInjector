@@ -4,7 +4,7 @@ using System . Linq;
 using System . Text;
 using System . Reflection;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     class ParamNode
     {
@@ -20,21 +20,21 @@ namespace DependencyInjector
 
         private ParamNode _initializingTemplate;
 
-        public int _id { get; private set; }
+        internal int _id { get; private set; }
 
-        public ParamNode _parent { get; private set; }
+        internal ParamNode _parent { get; private set; }
 
-        public NestedObject _nestedObj { get; private set; }
+        internal NestedObject _nestedObj { get; private set; }
 
-        public int _myLevelInTree { get; private set; }
+        internal int _myLevelInTree { get; private set; }
 
-        public bool _isInitialized { get; private set; }
+        internal bool _isInitialized { get; private set; }
 
-        public bool _isFork;
+        internal bool _isFork;
 
 
         #region Ctors
-        public ParamNode ( Type typeOfNested , NodeType nodeType )
+        internal ParamNode ( Type typeOfNested , NodeType nodeType )
         {
             DryCtorPart ( typeOfNested , nodeType );
             _ordinalNumberInParentCtor = 0;
@@ -42,7 +42,7 @@ namespace DependencyInjector
         }
 
 
-        public ParamNode ( Type typeOfNested , int ordinalNumberInParentCtorParams , ParamNode parent , NodeType nodeType )
+        internal ParamNode ( Type typeOfNested , int ordinalNumberInParentCtorParams , ParamNode parent , NodeType nodeType )
         {
             DryCtorPart ( typeOfNested , nodeType );
             _ordinalNumberInParentCtor = ordinalNumberInParentCtorParams;
@@ -68,7 +68,7 @@ namespace DependencyInjector
         /// 
         /// </summary>
         /// <returns></returns>
-        public List <ParamNode> GetSequenceForDependencyCircuit ( )
+        internal List <ParamNode> GetSequenceForDependencyCircuit ( )
         {
             var possibleCircuit = new List<ParamNode> ( );
             var accomplishedCircuit = new List<ParamNode> ( );
@@ -99,7 +99,7 @@ namespace DependencyInjector
         }
 
 
-        public bool TypeNameEquals ( object obj )
+        internal bool TypeNameEquals ( object obj )
         {
             bool equals = false;
 
@@ -119,7 +119,7 @@ namespace DependencyInjector
 
         #region Initializing
 
-        public void InitializeOrdinary ( )
+        internal void InitializeOrdinary ( )
         {
             var readyParamObjects = new List<object> ( );
 
@@ -140,7 +140,7 @@ namespace DependencyInjector
         }
 
 
-        public void InitializePassingOverAbsentParams ( )
+        internal void InitializePassingOverAbsentParams ( )
         {
             var readyParamObjects = new List<object> ( );
             var typesOfNotInitializedChildren = new List<Type> ( );
@@ -171,20 +171,20 @@ namespace DependencyInjector
         }
 
 
-        public void InitializeSimple ( )
+        internal void InitializeSimple ( )
         {
             var parentType = _parent . _nestedObj . _typeOfObject;
             _nestedObj . InitializeYourSelf ( parentType , _ordinalNumberInParentCtor );
         }
 
 
-        public void InitializeByTemplate ( )
+        internal void InitializeByTemplate ( )
         {
             _nestedObj . InitializeYourSelf ( _initializingTemplate );
         }
 
 
-        public void InitializeNestedObject ( )
+        internal void InitializeNestedObject ( )
         {
             if( ! _isInitialized )
             {
@@ -194,7 +194,7 @@ namespace DependencyInjector
         }
 
 
-        public void InitializeNestedObject ( ParamNode template )
+        internal void InitializeNestedObject ( ParamNode template )
         {
             var argNullMessage = "arg 'template' cant be null";
 
@@ -208,7 +208,7 @@ namespace DependencyInjector
         #endregion Initializing
 
 
-        public List<ParamNode> DefineChildren ( )
+        internal List<ParamNode> DefineChildren ( )
         {
             var childTypes = _nestedObj . GetCtorParamTypes ( );
             var result = _nodeType . DefineChildren ( this , childTypes );
@@ -217,7 +217,7 @@ namespace DependencyInjector
         }
 
 
-        public void ChangeState ( NodeKind kind )
+        internal void ChangeState ( NodeKind kind )
         {
             switch ( kind ) 
             {
@@ -236,7 +236,7 @@ namespace DependencyInjector
         }
 
 
-        public ParamNode GetNearestOrdinaryAncestor ()
+        internal ParamNode GetNearestOrdinaryAncestor ()
         {
             ParamNode ancestor = null;
             var beingProcessed = _parent;
@@ -256,7 +256,7 @@ namespace DependencyInjector
         }
 
 
-        public NodeKind GetNodeKind ()
+        internal NodeKind GetNodeKind ()
         {
             return _nodeType . _kind;
         }
@@ -264,7 +264,7 @@ namespace DependencyInjector
 
 
 
-        public void EndUpIinitialization ( )
+        internal void EndUpIinitialization ( )
         {
             var mustBeInitializedAlreadyChildren = _temporarilyNotInitializedChildren;
 

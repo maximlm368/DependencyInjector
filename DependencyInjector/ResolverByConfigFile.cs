@@ -4,10 +4,12 @@ using System . Text;
 using Microsoft . Extensions . Configuration . Json;
 using Microsoft . Extensions . Configuration;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     class ResolverByConfigFile
     {
+        private static ResolverByConfigFile _resolverByFile = null;
+
         private IConfigurationRoot _configRoot;
 
         private string _configFilePath;
@@ -15,9 +17,9 @@ namespace DependencyInjector
         private string _attributeSection;
 
 
-        public ResolverByConfigFile ( )
+        private ResolverByConfigFile ( string confFilePath )
         {
-            _configFilePath = "jsconfig1.json";
+            _configFilePath = confFilePath;
             _attributeSection = "AttributeName";
             var builder = new ConfigurationBuilder ( );
             builder . AddJsonFile ( _configFilePath );
@@ -25,7 +27,18 @@ namespace DependencyInjector
         }
 
 
-        public string GetImplimentationNameByAbstraction ( string abstractionFullName , int nodeOrdinalNumber )
+        internal static ResolverByConfigFile GetResolverByFile ( string confFilePath )
+        {
+           if( _resolverByFile == null )
+           {
+                _resolverByFile = new ResolverByConfigFile ( confFilePath );
+           }
+
+            return _resolverByFile;
+        }
+
+
+        internal string GetImplimentationNameByAbstraction ( string abstractionFullName , int nodeOrdinalNumber )
         {
             var implimentationName = GetImplimentationName ( abstractionFullName , nodeOrdinalNumber );
 
@@ -52,7 +65,8 @@ namespace DependencyInjector
             {
                 var fromConfigInterfaceName = implimentationItem . GetSection ( "abstractionFullName" ) . Value;
                 var abstractionNameCoincides = NamesAreEqual ( fromConfigInterfaceName , abstractionFullName );
-                var ordinalNumberAsString = implimentationItem . GetSection ( "ordinalNumberCountingFromLeftToRightFromRootAsZeroInDependencyTree" ) . Value;
+                var ordinalNumberAsString = implimentationItem 
+                                          . GetSection ( "ordinalNumberCountingFromLeftToRightFromRootAsZeroInDependencyTree" ) . Value;
                 var numberCoincides = OrdinalNumbersAreEqual ( ordinalNumberAsString , nodeOrdinalNumber , abstractionFullName );
 
                 if ( abstractionNameCoincides    &&    numberCoincides )
@@ -125,7 +139,7 @@ namespace DependencyInjector
         }
 
 
-        public Dictionary<string , Type> GetValuesOfGenericParams ( Type genericType )
+        internal Dictionary<string , Type> GetValuesOfGenericParams ( Type genericType )
         {
             var typeNames = new Dictionary <string ,  Type> ( );
             var valueSections = _configRoot . GetSection ( "ValuesForGenerics:Items:" + genericType . FullName );
@@ -146,7 +160,7 @@ namespace DependencyInjector
         }
 
 
-        public object GetValueOfSimpleParam ( Type parentType , int ordinalNumberAmongCtorParams , Type targetType)
+        internal object GetValueOfSimpleParam ( Type parentType , int ordinalNumberAmongCtorParams , Type targetType)
         {
             object simpleValue = null;
             var simpleParamSections = _configRoot . GetSection ( "SimpleParameters:Items" );
@@ -171,16 +185,16 @@ namespace DependencyInjector
             if ( simpleValue == null )
             {
                 throw new ConfigResolutionExeption ( 
-                                                           _configFilePath + " does not include type params for " + parentType . FullName + " with " +
-                                                           ordinalNumberAmongCtorParams + " number of param and type of param " + targetType . FullName  
-                                                         );
+                                                     _configFilePath + " does not include type params for " + parentType . FullName + " with " +
+                                                     ordinalNumberAmongCtorParams + " number of param and type of param " + targetType . FullName  
+                                                    );
             }
 
             return simpleValue;
         }
 
 
-        public int GetCtorOrdinalNumber ( Type targetType, int nodeOrdinalNumber )
+        internal int GetCtorOrdinalNumber ( Type targetType, int nodeOrdinalNumber )
         {
             var targetCtorNumber = 0;
             var ctorNumbers = _configRoot . GetSection ( "CtorNumbers:Items" );
@@ -208,47 +222,42 @@ namespace DependencyInjector
         }
 
 
-        /// <summary>
-        /// ggjgjgjvlvhj
-        /// </summary>
-        /// <returns>iuhyuhluhpu</returns>
-        public string GetAttributeName ()
-        {
-            var attributeName = "";
-            var attributeNameSection = _configRoot . GetSection ( _attributeSection );
-            
-            ThrowExeptionIfSectionDoesNotExist ( attributeNameSection );
-            attributeName = attributeNameSection . Value;
-            var exeptionMessage = _attributeSection + " must have value that presents full name of class of attribute";
 
-            var attributeNameIsEmpty = attributeName . Length == 0;
+        //internal string GetAttributeName ( )
+        //{
+        //    var attributeName = "";
+        //    var attributeNameSection = _configRoot.GetSection ( _attributeSection );
 
-            if ( attributeNameIsEmpty )
-            {  
-                throw new ConfigResolutionExeption ( exeptionMessage );
-            }
+        //    ThrowExeptionIfSectionDoesNotExist ( attributeNameSection );
+        //    attributeName = attributeNameSection.Value;
+        //    var exeptionMessage = _attributeSection + " must have value that presents full name of class of attribute";
 
-            var isNotFullName = ! attributeName . Contains ( "." );
+        //    var attributeNameIsEmpty = attributeName.Length == 0;
 
-            if( isNotFullName )
-            {
-                throw new ConfigResolutionExeption ( exeptionMessage );
-            }
+        //    if ( attributeNameIsEmpty )
+        //    {
+        //        throw new ConfigResolutionExeption ( exeptionMessage );
+        //    }
 
-            return attributeName;
-        }
-        
+        //    var isNotFullName = !attributeName.Contains ( "." );
 
-        private void ThrowExeptionIfSectionDoesNotExist ( IConfigurationSection section )
-        {
-            if ( ! section . Exists ( ) )
-            {
-                var exeptionMessage = _attributeSection + " section absent in configfile";
-                throw new ConfigResolutionExeption ( exeptionMessage );
-            }
-        }
+        //    if ( isNotFullName )
+        //    {
+        //        throw new ConfigResolutionExeption ( exeptionMessage );
+        //    }
+
+        //    return attributeName;
+        //}
 
 
+        //private void ThrowExeptionIfSectionDoesNotExist ( IConfigurationSection section )
+        //{
+        //    if ( !section.Exists ( ) )
+        //    {
+        //        var exeptionMessage = _attributeSection + " section absent in configfile";
+        //        throw new ConfigResolutionExeption ( exeptionMessage );
+        //    }
+        //}
     }
 
 
@@ -257,7 +266,7 @@ namespace DependencyInjector
     {
          public override string Message { get; }
 
-         public ConfigResolutionExeption ( string message )
+         internal ConfigResolutionExeption ( string message )
          {
             Message = message;
          }

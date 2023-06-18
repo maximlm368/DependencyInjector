@@ -4,9 +4,9 @@ using System . Linq;
 using System . Text;
 using System . Reflection;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
-    static class ConstructorInfoExtention
+    public static class ConstructorInfoExtention
     {
         public static bool CanBeFitCtor ( this ConstructorInfo ctor , Type mustNotBeInParams )
         {
@@ -263,7 +263,7 @@ namespace DependencyInjector
 
                 for ( var j = i + 1;   j < list . Count;   j++ )
                 {
-                    if ( Object . ReferenceEquals ( list [ i ] , list [ j ] )   &&   result . Contains ( list [ i ] )   &&   result . Contains ( list [ j ] ) )
+                    if ( Object.ReferenceEquals ( list [ i ] , list [ j ] )   &&   result.Contains ( list [ i ] )   &&   result.Contains ( list [ j ] ) )
                     {
                         result . Add ( list [ j ] );
                         met = true;
@@ -510,7 +510,7 @@ namespace DependencyInjector
 
     class CircuitListComparer : IEqualityComparer<List<DependencyCircuit>>
     {
-        bool IEqualityComparer<List<DependencyCircuit>> . Equals ( List<DependencyCircuit> x , List<DependencyCircuit> y )
+        internal bool IEqualityComparer<List<DependencyCircuit>> . Equals ( List<DependencyCircuit> x , List<DependencyCircuit> y )
         {
             if ( object . ReferenceEquals ( x , y ) )
             {
@@ -521,9 +521,9 @@ namespace DependencyInjector
         }
 
 
-        int IEqualityComparer<List<DependencyCircuit>> . GetHashCode ( List<DependencyCircuit> obj )
+        internal int IEqualityComparer<List<DependencyCircuit>>.GetHashCode ( List<DependencyCircuit> obj )
         {
-            return obj . GetHashCode ( );
+            return obj.GetHashCode ( );
         }
     }
 

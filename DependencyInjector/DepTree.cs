@@ -4,9 +4,9 @@ using System . Linq;
 using System . Text;
 using System . Reflection;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
-    public class DependencyTree
+    class DependencyTree
     {
         private ParamNode _root;
 
@@ -27,9 +27,9 @@ namespace DependencyInjector
         private string _mainExpMessage = "dll is wrong";
 
 
-        public DependencyTree ( Type rootType )
+        internal DependencyTree ( Type aimType )
         {
-            _root = new ParamNode ( rootType , new OrdinaryNode ( ) );
+            _root = new ParamNode ( aimType , new OrdinaryNode ( ) );
             _nodes = new List<ParamNode> { _root };
             _bunches = new List<Bunch> ( );
             _nodeToCircuits = new Dictionary<ParamNode , List<DependencyCircuit>> ( );
@@ -37,7 +37,7 @@ namespace DependencyInjector
         }
 
 
-        public object BuildAimObject ( )
+        internal object BuildAimObject ( )
         {
             BuildYourself ( );
             InitializeNodes ( );

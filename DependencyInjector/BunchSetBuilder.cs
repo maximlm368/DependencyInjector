@@ -4,7 +4,7 @@ using System . Linq;
 using System . Text;
 using System . Reflection;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     class BunchSetBuilder
     {
@@ -35,7 +35,7 @@ namespace DependencyInjector
         private static string _nullArg = "'circuits' param in ctor can not be null";
 
 
-        public BunchSetBuilder ( List<DependencyCircuit> circuits,   Dictionary <ParamNode, List <DependencyCircuit>> nodeToCircuits,
+        internal BunchSetBuilder ( List<DependencyCircuit> circuits,   Dictionary <ParamNode, List <DependencyCircuit>> nodeToCircuits,
                                                                                             Dictionary <List <DependencyCircuit>, Bunch> circuitsToBunch )
         {
             _nodeToCircuits = nodeToCircuits ?? throw new ArgumentNullException ( _nullArg );
@@ -44,7 +44,7 @@ namespace DependencyInjector
         }
 
 
-        public List<Bunch> Build ( )
+        internal List<Bunch> Build ( )
         {
             var bunches = new List<Bunch> ( );
 
@@ -72,7 +72,7 @@ namespace DependencyInjector
 
             while ( renderingData . _circuitContinues )
             {
-                if ( ( renderingData . _beingProcessedNodeNumber == 0 )    ||    renderingData . _metSomeTop    ||    renderingData . _isContinuationAfterFork )
+                if (( renderingData._beingProcessedNodeNumber == 0 )    ||    renderingData._metSomeTop    ||    renderingData._isContinuationAfterFork )
                 {
                     HandleFirstNode ( renderingData , circuit );
                 }

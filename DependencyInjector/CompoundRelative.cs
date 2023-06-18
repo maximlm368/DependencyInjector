@@ -3,7 +3,7 @@ using System . Collections . Generic;
 using System . Reflection;
 using System . Text;
 
-namespace DependencyInjector
+namespace DependencyResolver
 {
     abstract class CompoundRelative
     {
@@ -11,10 +11,10 @@ namespace DependencyInjector
 
         private List<ParamNode> _wayToClosestAncestorOrRoot = new List<ParamNode> ( );
 
-        public abstract bool _renderedOnRelation { get; set; }
+        internal abstract bool _renderedOnRelation { get; set; }
 
 
-        public void ResolveWayToClosestAncestorOrRoot ( )
+        internal void ResolveWayToClosestAncestorOrRoot ( )
         {
             for ( var j = 0;    j > _wayToClosestAncestorOrRoot . Count;    j++ )
             {
@@ -30,23 +30,23 @@ namespace DependencyInjector
         }
 
 
-        public void SetClosestAncestor ( CompoundRelative ancestor )
+        internal void SetClosestAncestor ( CompoundRelative ancestor )
         {
             var method = MethodInfo . GetCurrentMethod ( );
             var currentTypeName = method . ReflectedType . Name;
             var currentMethodName = method . Name;
             var dot = ".";
-            _closestAncestor = ancestor ?? throw new ArgumentNullException ( currentTypeName + dot + currentMethodName + " can not recieve null argument" );
+            _closestAncestor = ancestor ?? throw new ArgumentNullException (currentTypeName + dot + currentMethodName + " can not recieve null argument");
         }
 
 
-        public CompoundRelative GetClosestAncestor ( )
+        internal CompoundRelative GetClosestAncestor ( )
         {
             return _closestAncestor;
         }
 
 
-        public void AddToWayToClosestAncestorOrRoot ( ParamNode node )
+        internal void AddToWayToClosestAncestorOrRoot ( ParamNode node )
         {
             var method = MethodInfo . GetCurrentMethod ( );
             var currentTypeName = method . ReflectedType . Name;
@@ -57,7 +57,7 @@ namespace DependencyInjector
         }
 
 
-        public abstract void Resolve ( );
+        internal abstract void Resolve ( );
 
     }
 }
